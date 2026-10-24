@@ -1,0 +1,23 @@
+{
+  "name": "privacy-aware-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A conservative, policy-bound reference agent with a privacy gate before model access.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "test:adapter": "npm run build && node --test dist/tests/transportProvider.test.js",
+    "eval": "npm run build && node dist/src/eval.js",
+    "demo": "npm run build && node dist/src/demo.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.7.0"
+  }
+}
