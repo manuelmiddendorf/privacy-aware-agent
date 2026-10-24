@@ -8,8 +8,8 @@ const DIRECT_PERSON_NAME_PATTERNS = [
 ];
 
 const BLOCK_RULES: readonly { pattern: RegExp; result: ClassificationResult }[] = [
-  { pattern: /\b(diagnos(?:e|is)|medication|medicine|medical|patient|symptom|fever|allerg(?:y|ie)|health(?:\s+record)?|therap(?:y|ie)|disability|krank(?:heit|meldung)?|fieber|husten|übelkeit|arzt|ärzt(?:in|lich)|gesundheit(?:sdaten)?)\b/i, result: { classification: "sensitive", reasonCode: "BLOCK_HEALTH_DATA" } },
-  { pattern: /\b(child|children|kid|minor|kind|kinder|kindes|kindern|jugendlich(?:e|er|es|en))\b/i, result: { classification: "sensitive", reasonCode: "BLOCK_CHILD_DATA" } },
+  { pattern: /\b(diagnos(?:e|is)|medication|medicine|medical|patient|symptom|fever|allerg(?:y|ie)|health(?:\s+record)?|therap(?:y|ie)|disability|krank(?:heit|meldung)?|fieber|husten|übelkeit|arzt|ärzt(?:in|lich)|gesundheit(?:sdaten)?|atemnot)\b|\bmedizinisch(?:e|er|es|en)?\s+(?:behandelt|behandlung)\b|\bkaum\s+luft\s+(?:holen|bekommen)\b/i, result: { classification: "sensitive", reasonCode: "BLOCK_HEALTH_DATA" } },
+  { pattern: /\b(child|children|kid|minor|kind|kinder|kindes|kindern|vorschulkind(?:er|es|ern)?|jugendlich(?:e|er|es|en))\b/i, result: { classification: "sensitive", reasonCode: "BLOCK_CHILD_DATA" } },
   { pattern: /\b(performance review|disciplinary|termination reason|salary|gehalt|personalakte|abmahnung)\b/i, result: { classification: "sensitive", reasonCode: "BLOCK_SENSITIVE_PERSONNEL" } },
   { pattern: /\b(password|passwort|api[_ -]?key|secret|private key|access token|bearer\s+[a-z0-9._-]+)\b/i, result: { classification: "sensitive", reasonCode: "BLOCK_CREDENTIAL" } },
   { pattern: /\b(iban|bic|credit card|kreditkarte|bank account)\b/i, result: { classification: "sensitive", reasonCode: "BLOCK_FINANCIAL_IDENTIFIER" } },

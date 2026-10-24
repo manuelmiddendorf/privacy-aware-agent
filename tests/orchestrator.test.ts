@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createExactSyntheticEvidenceAssessor } from "../src/demoEvidence.js";
 import { DEMO_POLICY } from "../src/demoPolicy.js";
 import { MockProvider } from "../src/mockProvider.js";
 import { PrivacyAwareAgent } from "../src/orchestrator.js";
 import { classifyText, redactDirectIdentifiers } from "../src/privacyGate.js";
-import type { ModelProvider } from "../src/types.js";
+import type { AgentRequest, ModelProvider } from "../src/types.js";
 
 test("calls the single provider once only after gating, redaction and source authorization", async () => {
   const provider = new MockProvider();
-  const agent = new PrivacyAwareAgent(provider);
-  const result = await agent.run(DEMO_POLICY, {
+  const request: AgentRequest = {
     task: "ask",
     text: "Send the generic answer to reader@example.test.",
     sourceIds: ["help-hours"],
-  });
+  };
+  const agent = new PrivacyAwareAgent(provider, undefined, createExactSyntheticEvidenceAssessor(request));
+  const result = await agent.run(DEMO_POLICY, request);
   assert.equal(result.ok, true);
   assert.equal(provider.callCount, 1);
   if (result.ok) {
@@ -81,8 +83,9 @@ test("provider failure after an allowed call is distinguished and fail-closed", 
     get callCount() { return calls; },
     async generate() { calls += 1; throw new Error("synthetic failure"); },
   };
-  const agent = new PrivacyAwareAgent(provider);
-  const result = await agent.run(DEMO_POLICY, { task: "ask", text: "ordinary prompt", sourceIds: ["help-hours"] });
+  const request: AgentRequest = { task: "ask", text: "ordinary prompt", sourceIds: ["help-hours"] };
+  const agent = new PrivacyAwareAgent(provider, undefined, createExactSyntheticEvidenceAssessor(request));
+  const result = await agent.run(DEMO_POLICY, request);
   assert.equal(result.ok, false);
   assert.equal(result.reasonCode, "BLOCK_PROVIDER_ERROR");
   assert.equal(provider.callCount, 1);
@@ -260,11 +263,11 @@ test("the offline mock keeps distinct ask, summarize and draft contracts", async
   ];
   for (const sample of samples) {
     const provider = new MockProvider();
-    const result = await new PrivacyAwareAgent(provider).run(DEMO_POLICY, {
-      task: sample.task,
-      text: sample.text,
-      sourceIds: sample.sourceIds,
-    });
+    const request: AgentRequest = { task: sample.task, text: sample.text, sourceIds: sample.sourceIds };
+    const evidenceAssessor = request.sourceIds.length > 0
+      ? createExactSyntheticEvidenceAssessor(request)
+      : undefined;
+    const result = await new PrivacyAwareAgent(provider, undefined, evidenceAssessor).run(DEMO_POLICY, request);
     assert.equal(result.ok, true);
     assert.equal(provider.callCount, 1);
     if (result.ok) assert.match(result.output.text, new RegExp(`^${sample.prefix}`));
