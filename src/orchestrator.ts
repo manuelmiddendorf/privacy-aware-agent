@@ -23,7 +23,7 @@ const DEFAULT_GUARD: PrivacyGuard = {
 };
 
 const DEFAULT_EVIDENCE_ASSESSOR: EvidenceAssessor = {
-  isSufficient: () => true,
+  isSufficient: (_request, documents) => documents.length === 0,
 };
 
 export class PrivacyAwareAgent {

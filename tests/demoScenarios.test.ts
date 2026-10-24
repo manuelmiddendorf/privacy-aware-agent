@@ -36,7 +36,7 @@ test("the four offline CLI scenarios preserve evidence, privacy and no-action bo
   assert.equal(notice.ok, false);
   assert.equal(notice.reasonCode, "BLOCK_EVIDENCE_INSUFFICIENT");
   assert.equal(notice.providerCalls, 0);
-  assert.equal(notice.message, "The approved documents do not contain sufficient information to answer this.");
+  assert.equal(notice.message, "The information needed for this answer has not been sufficiently confirmed.");
   assert.deepEqual(notice.citations, []);
   assert.doesNotMatch(notice.message, /day|week|month|deadline|citation/i);
 });

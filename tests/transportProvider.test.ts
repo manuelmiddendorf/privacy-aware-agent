@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createExactSyntheticEvidenceAssessor } from "../src/demoEvidence.js";
 import { DEMO_POLICY } from "../src/demoPolicy.js";
 import { PrivacyAwareAgent } from "../src/orchestrator.js";
 import {
@@ -7,13 +8,16 @@ import {
   type ProviderTransport,
   type TrustedTransportProviderConfig,
 } from "../src/transportProvider.js";
-import type { AgentRequest, ReasonCode } from "../src/types.js";
+import type { AgentRequest, ModelProvider, ReasonCode } from "../src/types.js";
 
 const ASK_REQUEST: AgentRequest = {
   task: "ask",
   text: "What are the synthetic support hours?",
   sourceIds: ["help-hours"],
 };
+
+const approvedAgent = (provider: ModelProvider, request: AgentRequest = ASK_REQUEST) =>
+  new PrivacyAwareAgent(provider, undefined, createExactSyntheticEvidenceAssessor(request));
 
 const enabled = (
   transport: ProviderTransport,
@@ -32,7 +36,7 @@ test("the injected transport is disabled by default and distinguishes method fro
     attempts += 1;
     return { status: 200, body: { text: "unexpected", citations: [] } };
   });
-  const result = await new PrivacyAwareAgent(provider).run(DEMO_POLICY, ASK_REQUEST);
+  const result = await approvedAgent(provider).run(DEMO_POLICY, ASK_REQUEST);
   assert.equal(result.ok, false);
   assert.equal(result.reasonCode, "BLOCK_PROVIDER_DISABLED");
   assert.equal(provider.callCount, 1);
@@ -46,11 +50,12 @@ test("an explicitly enabled synthetic transport receives only the gated provider
     captured = request;
     return { status: 200, body: { text: "Synthetic approved answer.", citations: ["help-hours"] } };
   });
-  const result = await new PrivacyAwareAgent(provider).run(DEMO_POLICY, {
+  const request: AgentRequest = {
     task: "ask",
     text: "Send the approved answer to reader@example.test.",
     sourceIds: ["help-hours"],
-  });
+  };
+  const result = await approvedAgent(provider, request).run(DEMO_POLICY, request);
   assert.equal(result.ok, true);
   assert.equal(provider.callCount, 1);
   assert.equal(provider.transportCallCount, 1);
@@ -87,7 +92,7 @@ test("timeout aborts the injected signal and finishes even when the transport ig
     return await new Promise(() => {});
   }, { timeoutMs: 10 });
   const startedAt = Date.now();
-  const result = await new PrivacyAwareAgent(provider).run(DEMO_POLICY, ASK_REQUEST);
+  const result = await approvedAgent(provider).run(DEMO_POLICY, ASK_REQUEST);
   assert.equal(result.ok, false);
   assert.equal(result.reasonCode, "BLOCK_PROVIDER_TIMEOUT");
   assert.equal(provider.transportCallCount, 1);
@@ -99,7 +104,7 @@ test("cancellation before start makes zero calls and cancellation during transpo
   const beforeProvider = enabled(async () => ({ status: 200, body: { text: "unexpected", citations: [] } }));
   const before = new AbortController();
   before.abort();
-  const beforeResult = await new PrivacyAwareAgent(beforeProvider).run(DEMO_POLICY, ASK_REQUEST, { signal: before.signal });
+  const beforeResult = await approvedAgent(beforeProvider).run(DEMO_POLICY, ASK_REQUEST, { signal: before.signal });
   assert.equal(beforeResult.reasonCode, "BLOCK_PROVIDER_CANCELLED");
   assert.equal(beforeProvider.callCount, 0);
   assert.equal(beforeProvider.transportCallCount, 0);
@@ -113,7 +118,7 @@ test("cancellation before start makes zero calls and cancellation during transpo
     return await new Promise(() => {});
   });
   const during = new AbortController();
-  const pending = new PrivacyAwareAgent(duringProvider).run(DEMO_POLICY, ASK_REQUEST, { signal: during.signal });
+  const pending = approvedAgent(duringProvider).run(DEMO_POLICY, ASK_REQUEST, { signal: during.signal });
   await transportStarted;
   during.abort();
   const duringResult = await pending;
@@ -143,7 +148,7 @@ test("cancellation queued after transport resolution wins before the response is
     markTransportStarted();
     return heldTransport;
   });
-  const pending = new PrivacyAwareAgent(provider).run(DEMO_POLICY, ASK_REQUEST, { signal: cancellation.signal });
+  const pending = approvedAgent(provider).run(DEMO_POLICY, ASK_REQUEST, { signal: cancellation.signal });
   await transportStarted;
   resolveTransport({
     status: 200,
@@ -172,7 +177,7 @@ test("transport, upstream, rate, quota and rejection failures use stable reason 
   try {
     for (const [reason, transport] of samples) {
       const provider = enabled(transport);
-      const result = await new PrivacyAwareAgent(provider).run(DEMO_POLICY, ASK_REQUEST);
+      const result = await approvedAgent(provider).run(DEMO_POLICY, ASK_REQUEST);
       assert.equal(result.reasonCode, reason);
       assert.equal(provider.transportCallCount, 1);
       assert.doesNotMatch(JSON.stringify(result), /raw synthetic provider secret|raw upstream body|"message":"rejected"/i);
@@ -188,12 +193,12 @@ test("request and response limits, response shape and citation scope fail closed
   const tooLargeRequest = enabled(async () => ({ status: 200, body: { text: "unexpected", citations: [] } }), {
     maxRequestBytes: 64,
   });
-  const requestResult = await new PrivacyAwareAgent(tooLargeRequest).run(DEMO_POLICY, ASK_REQUEST);
+  const requestResult = await approvedAgent(tooLargeRequest).run(DEMO_POLICY, ASK_REQUEST);
   assert.equal(requestResult.reasonCode, "BLOCK_PROVIDER_REQUEST_TOO_LARGE");
   assert.equal(tooLargeRequest.transportCallCount, 0);
 
   const unexpectedResponse = enabled(async () => ({ status: "200", body: {} } as never));
-  const unexpectedResult = await new PrivacyAwareAgent(unexpectedResponse).run(DEMO_POLICY, ASK_REQUEST);
+  const unexpectedResult = await approvedAgent(unexpectedResponse).run(DEMO_POLICY, ASK_REQUEST);
   assert.equal(unexpectedResult.reasonCode, "BLOCK_PROVIDER_RESPONSE_INVALID");
   assert.equal(unexpectedResponse.transportCallCount, 1);
 
@@ -211,7 +216,7 @@ test("request and response limits, response shape and citation scope fail closed
     value: { text: "must not be accepted", citations: [] },
   });
   const responseGetterProvider = enabled(async () => responseWithGetter as never);
-  const responseGetterResult = await new PrivacyAwareAgent(responseGetterProvider).run(DEMO_POLICY, ASK_REQUEST);
+  const responseGetterResult = await approvedAgent(responseGetterProvider).run(DEMO_POLICY, ASK_REQUEST);
   assert.equal(responseGetterResult.reasonCode, "BLOCK_PROVIDER_RESPONSE_INVALID");
   assert.equal(statusReads, 0);
 
@@ -224,7 +229,7 @@ test("request and response limits, response shape and citation scope fail closed
   ];
   for (const [reason, body, overrides] of samples) {
     const provider = enabled(async () => ({ status: 200, body }), overrides);
-    const result = await new PrivacyAwareAgent(provider).run(DEMO_POLICY, ASK_REQUEST);
+    const result = await approvedAgent(provider).run(DEMO_POLICY, ASK_REQUEST);
     assert.equal(result.reasonCode, reason);
     assert.equal(provider.transportCallCount, 1);
   }
@@ -237,7 +242,7 @@ test("request and response limits, response shape and citation scope fail closed
   const toJsonProvider = enabled(async () => ({ status: 200, body: oversizedWithToJson }), {
     maxResponseBytes: 64,
   });
-  const toJsonResult = await new PrivacyAwareAgent(toJsonProvider).run(DEMO_POLICY, ASK_REQUEST);
+  const toJsonResult = await approvedAgent(toJsonProvider).run(DEMO_POLICY, ASK_REQUEST);
   assert.equal(toJsonResult.reasonCode, "BLOCK_PROVIDER_RESPONSE_TOO_LARGE");
 
   let getterReads = 0;
@@ -251,7 +256,7 @@ test("request and response limits, response shape and citation scope fail closed
   });
   Object.defineProperty(getterBody, "citations", { enumerable: true, value: [] });
   const getterProvider = enabled(async () => ({ status: 200, body: getterBody }));
-  const getterResult = await new PrivacyAwareAgent(getterProvider).run(DEMO_POLICY, ASK_REQUEST);
+  const getterResult = await approvedAgent(getterProvider).run(DEMO_POLICY, ASK_REQUEST);
   assert.equal(getterResult.reasonCode, "BLOCK_PROVIDER_RESPONSE_INVALID");
   assert.equal(getterReads, 0);
 
@@ -259,7 +264,7 @@ test("request and response limits, response shape and citation scope fail closed
     status: 200,
     body: { text: "Stable plain response.", citations: ["help-hours"] },
   }));
-  const plainResult = await new PrivacyAwareAgent(plainProvider).run(DEMO_POLICY, ASK_REQUEST);
+  const plainResult = await approvedAgent(plainProvider).run(DEMO_POLICY, ASK_REQUEST);
   assert.equal(plainResult.ok, true);
   if (plainResult.ok) {
     assert.equal(plainResult.output.text, "Stable plain response.");

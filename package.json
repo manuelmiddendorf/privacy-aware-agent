@@ -14,7 +14,11 @@
     "test": "npm run build && node --test dist/tests/*.test.js",
     "test:adapter": "npm run build && node --test dist/tests/transportProvider.test.js",
     "eval": "npm run build && node dist/src/eval.js",
-    "demo": "npm run build && node dist/src/demo.js"
+    "demo": "npm run build && node dist/src/demo.js",
+    "test:openai": "npm run build && node --test dist/tests/openaiTransport.test.js",
+    "demo:openai": "npm run build && node dist/src/openaiLiveDemo.js",
+    "eval:practical": "npm run build && node dist/src/practicalEval.js",
+    "demo:openai:practical": "npm run build && node dist/src/openaiPracticalLive.js"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

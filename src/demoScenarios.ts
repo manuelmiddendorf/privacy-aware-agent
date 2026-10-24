@@ -1,7 +1,8 @@
+import { createExactSyntheticEvidenceAssessor } from "./demoEvidence.js";
 import { DEMO_POLICY } from "./demoPolicy.js";
 import { MockProvider } from "./mockProvider.js";
 import { PrivacyAwareAgent, type EvidenceAssessor } from "./orchestrator.js";
-import type { AgentRequest, AgentResult, ReasonCode } from "./types.js";
+import type { AgentRequest, AgentResult, ModelProvider, ReasonCode } from "./types.js";
 
 interface DemoScenario {
   id: "A" | "B" | "C" | "D";
@@ -20,15 +21,18 @@ export interface DemoScenarioResult {
   citations: readonly string[];
 }
 
+const MEETING_PREPARATION_REQUEST: AgentRequest = {
+  task: "ask",
+  text: "List only the approved preparation steps for the synthetic board meeting.",
+  sourceIds: ["meeting-preparation"],
+};
+
 const SCENARIOS: readonly DemoScenario[] = [
   {
     id: "A",
     label: "approved board-meeting preparation",
-    request: {
-      task: "ask",
-      text: "List only the approved preparation steps for the synthetic board meeting.",
-      sourceIds: ["meeting-preparation"],
-    },
+    request: MEETING_PREPARATION_REQUEST,
+    evidenceAssessor: createExactSyntheticEvidenceAssessor(MEETING_PREPARATION_REQUEST),
   },
   {
     id: "B",
@@ -68,22 +72,27 @@ function blockedMessage(result: AgentResult): string {
     return "I do not have an approved document for this question.";
   }
   if (result.reasonCode === "BLOCK_EVIDENCE_INSUFFICIENT") {
-    return "The approved documents do not contain sufficient information to answer this.";
+    return "The information needed for this answer has not been sufficiently confirmed.";
   }
   return "This request contains sensitive information. Please describe your request generally, without information about individual people.";
 }
 
-export async function runDemoScenarios(): Promise<DemoScenarioResult[]> {
+export interface DemoRunOptions {
+  providerFactory?: () => ModelProvider;
+}
+
+export async function runDemoScenarios(options: DemoRunOptions = {}): Promise<DemoScenarioResult[]> {
   const results: DemoScenarioResult[] = [];
   for (const scenario of SCENARIOS) {
-    const provider = new MockProvider();
+    const provider = options.providerFactory?.() ?? new MockProvider();
+    const callsBefore = provider.callCount;
     const result = await new PrivacyAwareAgent(provider, undefined, scenario.evidenceAssessor).run(DEMO_POLICY, scenario.request);
     results.push({
       id: scenario.id,
       label: scenario.label,
       ok: result.ok,
       reasonCode: result.reasonCode,
-      providerCalls: provider.callCount,
+      providerCalls: provider.callCount - callsBefore,
       message: blockedMessage(result),
       citations: result.ok ? result.output.citations : [],
     });

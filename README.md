@@ -2,7 +2,7 @@
 
 A small TypeScript/Node reference implementation of a policy-bound assistant. Its defining rule is **privacy gate before model access**: missing or explicitly insufficient evidence, sensitive content, uncertain content, denied sources, and technical gate failures stop before a provider call.
 
-Version 0.1 is offline and intentionally limited. It uses a deterministic provider named `MOCK_OFFLINE`, synthetic help documents, and no API keys, live model, external actions, arbitrary URLs, or file access.
+The ordinary version 0.1 workflow is offline and intentionally limited. It uses a deterministic provider named `MOCK_OFFLINE`, synthetic help documents, and no API keys, live model, external actions, arbitrary URLs, or file access. A separate, default-disabled synthetic OpenAI preflight is documented below.
 
 ## Quick start
 
@@ -38,9 +38,9 @@ Pseudonymization is not anonymization. The rule-based scanner is conservative bu
 
 Questions require at least one explicitly approved source. A summary may operate on general, non-sensitive text supplied directly by the user without an external source; if it requests an external document, that source must still be explicitly approved for `summarize`. A free draft may use no source. If a draft does request sources, each source must explicitly allow `draft`. The deterministic mock enforces the same evidence shape as a defensive check and returns task-specific answer, summary, or draft output.
 
-The orchestrator also accepts an optional trusted, synchronous evidence assessor after all privacy scans and before provider access. Only the literal boolean `true` permits provider access; `false`, unknown runtime values, objects, promises, and technical failures all fail closed with zero provider calls. The included demo uses the assessor only for one explicit synthetic decision: `meeting-preparation` does not contain binding-notice-period evidence. This is a narrow test fixture, not a general semantic sufficiency or hallucination detector.
+Every request that loads documents requires a trusted, synchronous evidence assessor after all privacy and source checks and before provider access. Unassessed source-backed requests fail closed. Only the literal boolean `true` permits provider access; `false`, unknown runtime values, objects, promises, and technical failures all stop with zero provider calls. Source-free drafts and summaries remain available. The fixed demo/eval pairs use exact synthetic host decisions bound to the complete request and loaded fixture contents. These manual fixture decisions are not a general semantic sufficiency or hallucination detector.
 
-The mock provider cannot establish that a real LLM resists prompt injection. Before a live model is introduced, treat all retrieved content as hostile and add model-specific isolation, output controls, red-team tests, and provider governance.
+The mock provider and the narrow synthetic live check cannot establish that a real LLM resists prompt injection generally. Before broader or production live-model use, treat all retrieved content as hostile and add model-specific isolation, output controls, red-team tests, and provider governance.
 
 ## Disabled transport adapter contract
 
@@ -50,9 +50,15 @@ When explicitly enabled by trusted host code, the adapter receives only the `Pro
 
 Responses are untrusted. The adapter accepts only a small `{ text, citations }` shape within the response-byte limit and rejects duplicate or foreign citation IDs. This validates structure and source selection, not truth, safety, semantic sufficiency, model behavior, billing, or token usage. Timeouts and host cancellation abort the injected signal and clean up timers/listeners. There are no blind retries and no logging of prompts, documents, secrets, response bodies, or raw transport errors.
 
-This is not a complete provider adapter. A later live step still requires an explicitly selected provider and account, an approved cost ceiling, endpoint/authentication design, provider terms and retention review, production-safe observability, and separate authorization for any public transmission.
+This is not a complete production provider adapter. Any additional or production live step still requires an explicitly selected provider and account, an approved cost ceiling, reviewed endpoint/authentication design, provider terms and retention review, production-safe observability, and separate authorization for that public transmission.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Contributing](CONTRIBUTING.md).
+
+## Disabled OpenAI live-demo preflight
+
+A small server-side OpenAI Responses transport is prepared behind the existing provider-neutral adapter. It is disabled unless trusted host code explicitly enables both layers. It uses the fixed `gpt-6-luna` model ID, the fixed `https://api.openai.com/v1/responses` route, `store: false`, Standard service tier, no tools, no retries, and a persistent conservative budget ledger. The ordinary `npm run demo` remains fully offline.
+
+The reviewed live path is limited to synthetic scenarios. One separately gated two-call run and one separately gated three-call practical follow-up were each executed once on 2026-10-24. Their ledgers remain immutable and exhausted; neither command may be rerun. See [OpenAI live preflight](docs/OPENAI-LIVE-PREFLIGHT.md), [first live result](docs/OPENAI-LIVE-RESULT.md), [P3 preflight](docs/OPENAI-PRACTICAL-P3-PREFLIGHT.md), and [P3 result](docs/OPENAI-PRACTICAL-P3-RESULT.md).
 
 ## Evaluation
 
@@ -63,7 +69,7 @@ See [Architecture](docs/ARCHITECTURE.md) and [Contributing](CONTRIBUTING.md).
 1. Replace pattern rules with independently evaluated, multilingual detectors while retaining deterministic fail-closed behavior.
 2. Add signed/attested HOSTSERVER policy transport and policy expiry.
 3. Add isolated parsers for explicitly supported document types.
-4. Complete and evaluate a specifically approved provider implementation behind the disabled transport contract and the same single gateway, with no live data during development.
+4. Complete broader evaluation of any specifically approved provider implementation behind the disabled transport contract and the same single gateway, using no private live data during development.
 5. Add human review for uncertain workflows before considering any action capability.
 
 ## License

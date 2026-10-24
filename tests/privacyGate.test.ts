@@ -17,6 +17,29 @@ test("blocks sensitive and uncertain categories with stable reason codes", () =>
   assert.equal(classifyText("Die Person hat Fieber.", 1_000).reasonCode, "BLOCK_HEALTH_DATA");
 });
 
+
+test("blocks the practical health and preschool-child phrasings without widening adjacent benign text", () => {
+  const blocked = [
+    ["Die erfundene erwachsene Person liegt seit gestern mit starken Beschwerden im Bett und kann kaum Luft holen.", "BLOCK_HEALTH_DATA"],
+    ["Die Person kann kaum Luft bekommen.", "BLOCK_HEALTH_DATA"],
+    ["Eine Person berichtet von Atemnot.", "BLOCK_HEALTH_DATA"],
+    ["Unser jüngstes Gruppenmitglied wird gerade medizinisch behandelt.", "BLOCK_HEALTH_DATA"],
+    ["Eine medizinische Behandlung ist vorgesehen.", "BLOCK_HEALTH_DATA"],
+    ["Für das einzige Vorschulkind soll eine persönliche Entwicklungsnotiz geschrieben werden.", "BLOCK_CHILD_DATA"],
+    ["Die Vorschulkinder besuchen den Garten.", "BLOCK_CHILD_DATA"],
+  ] as const;
+  for (const [text, reason] of blocked) assert.equal(classifyText(text, 2_000).reasonCode, reason);
+
+  const benign = [
+    "Die Werkstatt behandelt heute das Thema Barrierefreiheit.",
+    "Die Broschüre erklärt, wie man beim Singen Luft holt.",
+    "Im Team wurden Beschwerden über den Fahrplan gesammelt.",
+    "Die Vorschule plant einen öffentlichen Flohmarkt.",
+    "Ein erwachsenes Gruppenmitglied bringt wiederverwendbare Becher mit.",
+  ];
+  for (const text of benign) assert.equal(classifyText(text, 2_000).reasonCode, "SAFE_GENERIC");
+});
+
 test("pseudonymizes direct identifiers without calling it anonymization", () => {
   const result = redactDirectIdentifiers("Email a@example.test or call +49 30 12345678.");
   assert.equal(result.count, 2);
