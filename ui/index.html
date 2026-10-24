@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy-Aware Agent — Local Demo</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Privacy-Aware Agent</p>
+          <h1>Local policy-gated demo</h1>
+          <p class="intro">Try synthetic examples through the same privacy, source, and evidence checks used by the reference agent.</p>
+        </div>
+        <div class="mode" aria-label="Provider status"><strong>MOCK_OFFLINE</strong><span>Live provider: not enabled</span></div>
+      </header>
+      <section class="notice" aria-label="Demo limits">Use synthetic examples only. The rule-based privacy detection is intentionally conservative and incomplete. No text is stored by this local page.</section>
+
+      <section class="panel" aria-labelledby="request-heading">
+        <div class="section-heading">
+          <div><p class="step">Request</p><h2 id="request-heading">What should the offline agent do?</h2></div>
+          <div class="templates" aria-label="Approved synthetic templates">
+            <button type="button" class="secondary" data-template="demo-a">Approved meeting example</button>
+            <button type="button" class="secondary" data-template="p01">Vetted follow-up example</button>
+          </div>
+        </div>
+        <form id="agent-form">
+          <fieldset><legend>Task</legend><div class="task-options">
+            <label><input type="radio" name="task" value="ask" checked> Ask</label>
+            <label><input type="radio" name="task" value="draft"> Draft</label>
+            <label><input type="radio" name="task" value="summarize"> Summarize</label>
+          </div></fieldset>
+          <label for="request-text">Text</label>
+          <textarea id="request-text" name="text" rows="7" maxlength="8192" required placeholder="Use general, synthetic information only."></textarea>
+          <p class="hint">Press Ctrl+Enter or Command+Enter to run. Your text stays in place after a block or error.</p>
+          <fieldset><legend>Synthetic sources</legend>
+            <p class="hint">Sources are optional for drafts and summaries. Questions require approved evidence; arbitrary source questions fail closed.</p>
+            <div class="source-options">
+              <label><input type="checkbox" name="source" value="help-hours"> Office hours</label>
+              <label><input type="checkbox" name="source" value="help-reset"> Reset flow</label>
+              <label><input type="checkbox" name="source" value="meeting-preparation"> Meeting preparation</label>
+            </div>
+          </fieldset>
+          <div class="actions"><button id="run-button" type="submit">Run offline</button><span id="status" class="status" role="status" aria-live="polite">Ready</span></div>
+        </form>
+      </section>
+
+      <section class="panel response-panel" aria-labelledby="response-heading">
+        <p class="step">Result</p><h2 id="response-heading">Offline response</h2>
+        <div id="result" class="result empty" tabindex="-1">Run a synthetic request to see the result.</div>
+        <div id="citations" class="citations" hidden><h3>Sources</h3><ul id="citation-list"></ul></div>
+      </section>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

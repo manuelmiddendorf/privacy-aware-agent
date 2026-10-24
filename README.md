@@ -42,6 +42,20 @@ Every request that loads documents requires a trusted, synchronous evidence asse
 
 The mock provider and the narrow synthetic live check cannot establish that a real LLM resists prompt injection generally. Before broader or production live-model use, treat all retrieved content as hostile and add model-specific isolation, output controls, red-team tests, and provider governance.
 
+## Local offline UI
+
+The small browser demo uses the same `PrivacyAwareAgent`, `DEMO_POLICY`, `MockProvider`, privacy gate, source checks, and evidence contract as the command-line examples. It binds only to `http://127.0.0.1:4317`, stores no submitted text, serves no arbitrary files, and has no live-provider or key path.
+
+Start it with Node.js 20 or newer:
+
+```sh
+npm run ui:local
+```
+
+Open `http://127.0.0.1:4317`. No account is required. Press `Ctrl+C` in the starting terminal to stop it. The two source-backed template buttons are fixed, previously reviewed synthetic request/document pairs. Other source-backed questions fail closed; source-free drafts and summaries remain available. Use synthetic examples only: the rule-based privacy detection is conservative and incomplete.
+
+Run its focused server checks with `npm run test:ui`. The page displays `MOCK_OFFLINE` and does not enable either completed live runner.
+
 ## Disabled transport adapter contract
 
 `TransportModelProvider` is a provider-neutral contract for a future transport. It has no built-in `fetch`, endpoint, hostname, SDK, API key, environment-variable lookup, account, or retry behavior. It accepts only an injected transport function and trusted host configuration. Its default configuration is disabled; user text, documents, model output, and role labels cannot enable it.
