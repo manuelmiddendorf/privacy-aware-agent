@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "A conservative, policy-bound reference agent with a privacy gate before model access.",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "engines": {
     "node": ">=20"
   },
