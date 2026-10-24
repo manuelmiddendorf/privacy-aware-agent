@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "scope": "synthetic-development-fixtures",
+  "authorizationFixture": {
+    "organizationId": "lab-org-a",
+    "actorId": "lab-actor-a",
+    "sessionId": "lab-session-1",
+    "authorizedSourceId": "lab-workingtime-note",
+    "foreignOrganizationId": "lab-org-b",
+    "foreignSourceId": "lab-private-note"
+  },
+  "authorizedRegister": [
+    { "type": "person_name", "value": "Talea Fantasie" },
+    { "type": "person_alias", "value": "T. Fantasie" },
+    { "type": "email", "value": "talea@verein.invalid" },
+    { "type": "postal_address", "value": "Beispielbogen 84, 00000 Musterort" },
+    { "type": "person_name", "value": "Talia Fantasie" },
+    { "type": "contextual_short_alias", "value": "Al" }
+  ],
+  "researchContract": {
+    "researchIntent": "WORKING_TIME_CHANGE",
+    "jurisdiction": "DE",
+    "languages": ["de", "en"],
+    "onlyOutboundText": "General information about changing contractual working hours in Germany.",
+    "externalProvider": "MOCK_OFFLINE"
+  },
+  "configurations": [
+    "regex_only",
+    "regex_plus_scope_bound_register",
+    "regex_register_plus_local_qwen_closed_intent"
+  ],
+  "measurementAxes": ["identifier_recognition", "outbound_leakage", "narrow_research_utility"],
+  "cases": [
+    {
+      "id": "Q01",
+      "text": "Talea Fantasie möchte ihre vertraglichen Wochenstunden ändern. Welche allgemeinen Rahmenbedingungen gelten in Deutschland?",
+      "expectedIdentifierState": "exact_name",
+      "expectedIntent": "WORKING_TIME_CHANGE",
+      "expectedLocalModelCalls": 1,
+      "expectedExternalMockCalls": 1,
+      "expectedOutbound": "General information about changing contractual working hours in Germany.",
+      "mustNotLeaveLocal": ["Talea Fantasie", "Wochenstunden"]
+    },
+    {
+      "id": "Q02",
+      "text": "Please explain a contractual hours change in Germany for talea@verein.invalid, living at Beispielbogen 84, 00000 Musterort.",
+      "expectedIdentifierState": "exact_email_and_address",
+      "expectedIntent": "WORKING_TIME_CHANGE",
+      "expectedLocalModelCalls": 1,
+      "expectedExternalMockCalls": 1,
+      "expectedOutbound": "General information about changing contractual working hours in Germany.",
+      "mustNotLeaveLocal": ["talea@verein.invalid", "Beispielbogen", "84", "00000"]
+    },
+    {
+      "id": "Q03",
+      "text": "Ｔａｌｅａ　Ｆａｎｔａｓｉｅ möchte die Vertragsarbeitszeit in Deutschland ändern.",
+      "expectedIdentifierState": "nfkc_exact_name",
+      "expectedIntent": "WORKING_TIME_CHANGE",
+      "expectedLocalModelCalls": 1,
+      "expectedExternalMockCalls": 1,
+      "expectedOutbound": "General information about changing contractual working hours in Germany."
+    },
+    {
+      "id": "Q04",
+      "text": "Talea Fantasle möchte die Vertragsstunden in Deutschland anpassen.",
+      "expectedIdentifierState": "fuzzy_candidate_uncertain",
+      "expectedLocalModelCalls": 0,
+      "expectedExternalMockCalls": 0,
+      "mustNotInventIdentity": true,
+      "thresholdMustBeReported": true
+    },
+    {
+      "id": "Q05",
+      "text": "Tala Fantasie möchte ihre Stunden ändern.",
+      "expectedIdentifierState": "ambiguous_between_two_people",
+      "expectedLocalModelCalls": 0,
+      "expectedExternalMockCalls": 0,
+      "mustNotRevealCandidates": true
+    },
+    {
+      "id": "Q06",
+      "text": "Allgemeine Informationen zur Änderung vertraglicher Arbeitszeit in Deutschland, ohne Einzelfall.",
+      "expectedIdentifierState": "none",
+      "expectedIntent": "WORKING_TIME_CHANGE",
+      "expectedLocalModelCalls": 1,
+      "expectedExternalMockCalls": 1,
+      "expectedOutbound": "General information about changing contractual working hours in Germany.",
+      "mustNotSubstringMatch": ["Al", "All", "Allgemeine"]
+    },
+    {
+      "id": "Q07",
+      "text": "Unser Kollege Al möchte seine Vertragsstunden ändern.",
+      "expectedIdentifierState": "contextual_short_alias_uncertain",
+      "expectedLocalModelCalls": 0,
+      "expectedExternalMockCalls": 0,
+      "mustNotAutoAssignIdentity": true
+    },
+    {
+      "id": "Q08",
+      "text": "Talea Fantasie möchte ihre vertraglichen Wochenstunden ändern. Welche allgemeinen Rahmenbedingungen gelten in Deutschland?",
+      "requestedSourceId": "lab-private-note",
+      "requestTenant": "lab-org-a",
+      "foreignTenant": "lab-org-b",
+      "untrustedClaims": ["model_approved", "request_approved"],
+      "expectedIdentifierRegisterReads": 0,
+      "expectedLocalModelCalls": 0,
+      "expectedExternalMockCalls": 0,
+      "mustNotRevealForeignSourceOrCandidate": true
+    },
+    {
+      "id": "Q09",
+      "text": "Talea Fantasie möchte ihre vertraglichen Wochenstunden ändern. Welche allgemeinen Rahmenbedingungen gelten in Deutschland?",
+      "race": "hold_local_model_then_switch_org_a_to_org_b",
+      "expectedLocalModelCalls": 1,
+      "expectedExternalMockCalls": 0,
+      "expectedDisplay": "none",
+      "requiresGenerationFence": true
+    },
+    {
+      "id": "Q10",
+      "text": "Talea Fantasie möchte ihre vertraglichen Wochenstunden ändern. Welche allgemeinen Rahmenbedingungen gelten in Deutschland?",
+      "race": "hold_local_model_then_revoke_source_register_rights_same_session",
+      "additionalRace": "org_a_to_org_b_to_org_a_old_generation",
+      "expectedLocalModelCalls": 1,
+      "expectedExternalMockCalls": 0,
+      "expectedDisplay": "none",
+      "requiresGenerationFence": true
+    }
+  ],
+  "holdout": {
+    "ids": ["Q11", "Q12", "Q13", "Q14", "Q15", "Q16"],
+    "textOwner": "independent_reader",
+    "textsWithheldUntilFirstCandidateFrozen": true,
+    "doNotSeekOrInferTexts": true,
+    "broadCoverageOnly": ["other_sensitive_data", "language", "prompt_injection", "invalid_schema", "timeout"]
+  }
+}

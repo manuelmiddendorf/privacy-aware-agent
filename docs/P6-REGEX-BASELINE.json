@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "gitCommit": "4148a02",
+  "classifier": "src/privacyGate.ts classifyText",
+  "sourceSha256": "3b6fd17156706c36115c5bae1e00b60f35ddced907c3502a0c9fc2e1138134ba",
+  "freshBuild": "TypeScript output isolated under /tmp/paa-p6-baseline-build",
+  "nodeVersion": "v20.20.1",
+  "typescriptVersion": "5.9.3",
+  "maxInputBytes": 8000,
+  "benchmarkPlanSha256": "3c4350e6aed72b21d59b649f56f7f48f2450de90072f939d4462ab067bba3364",
+  "scope": "Q01-Q10 known synthetic development fixtures only",
+  "note": "Captured before P6 identifier-register or local-model implementation. Authorization and generation-fence expectations are outside this regex-only classifier.",
+  "results": [
+    {
+      "id": "Q01",
+      "classification": "uncertain",
+      "reasonCode": "BLOCK_DIRECT_PERSON_NAME"
+    },
+    {
+      "id": "Q02",
+      "classification": "redactable",
+      "reasonCode": "REDACTABLE_DIRECT_IDENTIFIER"
+    },
+    {
+      "id": "Q03",
+      "classification": "safe",
+      "reasonCode": "SAFE_GENERIC"
+    },
+    {
+      "id": "Q04",
+      "classification": "uncertain",
+      "reasonCode": "BLOCK_DIRECT_PERSON_NAME"
+    },
+    {
+      "id": "Q05",
+      "classification": "uncertain",
+      "reasonCode": "BLOCK_DIRECT_PERSON_NAME"
+    },
+    {
+      "id": "Q06",
+      "classification": "safe",
+      "reasonCode": "SAFE_GENERIC"
+    },
+    {
+      "id": "Q07",
+      "classification": "safe",
+      "reasonCode": "SAFE_GENERIC"
+    },
+    {
+      "id": "Q08",
+      "classification": "uncertain",
+      "reasonCode": "BLOCK_DIRECT_PERSON_NAME"
+    },
+    {
+      "id": "Q09",
+      "classification": "uncertain",
+      "reasonCode": "BLOCK_DIRECT_PERSON_NAME"
+    },
+    {
+      "id": "Q10",
+      "classification": "uncertain",
+      "reasonCode": "BLOCK_DIRECT_PERSON_NAME"
+    }
+  ]
+}

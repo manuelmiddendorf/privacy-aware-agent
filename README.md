@@ -1,8 +1,12 @@
 # privacy-aware-agent
 
-A small TypeScript/Node reference implementation of a policy-bound assistant. Its defining rule is **privacy gate before model access**: missing or explicitly insufficient evidence, sensitive content, uncertain content, denied sources, and technical gate failures stop before a provider call.
+A small TypeScript/Node reference implementation of a policy-bound assistant. The existing external-provider path follows **privacy gate before model access**: missing or explicitly insufficient evidence, sensitive content, uncertain content, denied sources, and technical gate failures stop before a provider call. The separately isolated P7 synthetic local-only experiment uses prior host authorization and source checks instead of weakening or reusing that external boundary.
 
 The ordinary version 0.1 workflow is offline and intentionally limited. It uses a deterministic provider named `MOCK_OFFLINE`, synthetic help documents, and no API keys, live model, external actions, arbitrary URLs, or file access. A separate, default-disabled synthetic OpenAI preflight is documented below.
+
+The separately gated P6 local-model research experiment is not connected to the product or local UI. Its pinned transport worked, but the first frozen run overblocked all reached cases and continued none of four expected safe positives. The current product path therefore remains `MOCK_OFFLINE`; see [the P6 result](docs/P6-LOCAL-MODEL-RESULT.md).
+
+P7 defines a stable five-skill catalog and a separate local-only synthetic text lane; only “Dokumente verstehen” and “Texte formulieren”, plus their one fixed two-part combination, are mechanical implementation targets. The remaining skills stay visibly planned and unavailable. Its UI is explicitly labelled `LOCAL_TEST_DOUBLE`; no P7 model inference or real-model UI integration has run. See [the P7 contract](docs/P7-LOCAL-SKILLS-CONTRACT.md).
 
 ## Quick start
 

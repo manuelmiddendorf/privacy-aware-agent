@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { createServer, request as httpRequest, type Server } from "node:http";
 import test from "node:test";
-import { createLocalUiRequestHandler, type OfflineUiRunner } from "../src/localUiServer.js";
+import { createLocalUiRequestHandler, type LocalSkillUiRunner, type OfflineUiRunner } from "../src/localUiServer.js";
 
-async function withServer(runner: OfflineUiRunner | undefined, run: (url: string) => Promise<void>): Promise<void> {
-  const handler = createLocalUiRequestHandler(runner);
+async function withServer(
+  runner: OfflineUiRunner | undefined,
+  run: (url: string) => Promise<void>,
+  skillRunner?: LocalSkillUiRunner,
+): Promise<void> {
+  const handler = createLocalUiRequestHandler(runner, skillRunner);
   const server: Server = createServer((request, response) => { void handler(request, response); });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -18,6 +22,7 @@ async function withServer(runner: OfflineUiRunner | undefined, run: (url: string
 
 const requestHeaders = (url: string) => ({ Origin: url, "Content-Type": "application/json" });
 const post = (url: string, body: unknown) => fetch(`${url}/api/run`, { method: "POST", headers: requestHeaders(url), body: JSON.stringify(body) });
+const postSkill = (url: string, body: unknown) => fetch(`${url}/api/local-skills/run`, { method: "POST", headers: requestHeaders(url), body: JSON.stringify(body) });
 const getWithHost = (url: string, host: string) => new Promise<number>((resolve, reject) => {
   const request = httpRequest(url, { headers: { Host: host } }, (response) => {
     response.resume();
@@ -60,11 +65,63 @@ test("local UI serves only its fixed assets with defensive headers", async () =>
     const javascript = await script.text();
     assert.equal(script.status, 200);
     assert.doesNotMatch(javascript, /innerHTML|OPENAI_API_KEY|\.env|\.local/);
-    assert.equal([...javascript.matchAll(/fetch\(/g)].length, 1);
+    assert.equal([...javascript.matchAll(/fetch\(/g)].length, 2);
     assert.match(javascript, /fetch\("\/api\/run"/);
+    assert.match(javascript, /fetch\("\/api\/local-skills\/run"/);
+    assert.doesNotMatch(javascript, /localStorage|indexedDB/);
 
     assert.equal((await fetch(`${url}/.env.openai.local`)).status, 404);
     assert.equal((await fetch(`${url}/..%2f.local%2fopenai-live-demo-budget.json`)).status, 404);
+  });
+});
+
+test("local skill HTTP boundary rejects authority fields and oversized or malformed attachments", async () => {
+  await withServer(undefined, async (url) => {
+    const base = { requestNonce: "p7_nonce_2001", text: "Formuliere einen Text", attachments: [] };
+    assert.equal((await postSkill(url, { ...base, role: "admin" })).status, 400);
+    assert.equal((await postSkill(url, { ...base, organizationId: "p7-lab-org-b" })).status, 400);
+    assert.equal((await postSkill(url, { ...base, skillId: "GENERAL_RESEARCH" })).status, 400);
+    assert.equal((await postSkill(url, { ...base, attachments: [{ title: "Leer", text: "" }] })).status, 400);
+    assert.equal((await postSkill(url, { ...base, attachments: [{ title: "Groß", text: "x".repeat(41_000) }] })).status, 413);
+    assert.equal((await fetch(`${url}/api/local-skills/run`, { method: "GET" })).status, 405);
+  });
+});
+
+test("local skill UI route labels test-double results, skills, sources and paragraph citations", async () => {
+  await withServer(undefined, async (url) => {
+    const understand = await postSkill(url, {
+      requestNonce: "p7_nonce_2002",
+      text: "Fasse den synthetischen Gesundheitstext zusammen.",
+      attachments: [{ title: "Synthetischer Hinweis", text: "Das erfundene Kind hat Fieber.\n\nEs bleibt zuhause." }],
+    });
+    const understandBody = await understand.json() as Record<string, unknown>;
+    assert.equal(understand.status, 200);
+    assert.equal(understandBody.ok, true);
+    assert.equal(understandBody.provider, "LOCAL_TEST_DOUBLE");
+    assert.deepEqual(understandBody.skillIds, ["DOCUMENT_UNDERSTANDING"]);
+    assert.deepEqual(understandBody.sourceTitles, ["Synthetischer Hinweis"]);
+    assert.deepEqual((understandBody.citations as { paragraphId: string }[]).map(({ paragraphId }) => paragraphId), ["inline-1:p01"]);
+
+    const draft = await postSkill(url, { requestNonce: "p7_nonce_2003", text: "Formuliere eine freundliche Einladung.", attachments: [] });
+    const draftBody = await draft.json() as Record<string, unknown>;
+    assert.equal(draftBody.provider, "LOCAL_TEST_DOUBLE");
+    assert.deepEqual(draftBody.skillIds, ["TEXT_COMPOSITION"]);
+    assert.deepEqual(draftBody.citations, []);
+
+    const combined = await postSkill(url, {
+      requestNonce: "p7_nonce_2004",
+      text: "Erkläre den Hinweis und formuliere daraus einen Entwurf.",
+      attachments: [{ title: "Hinweis", text: "Ein rein synthetischer Absatz." }],
+    });
+    const combinedBody = await combined.json() as { skillIds: string[]; parts: unknown[] };
+    assert.deepEqual(combinedBody.skillIds, ["DOCUMENT_UNDERSTANDING", "TEXT_COMPOSITION"]);
+    assert.equal(combinedBody.parts.length, 2);
+
+    const clarify = await postSkill(url, { requestNonce: "p7_nonce_2005", text: "Kannst du das erledigen?", attachments: [] });
+    const clarifyBody = await clarify.json() as { ok: boolean; message: string; provider?: string };
+    assert.equal(clarifyBody.ok, false);
+    assert.match(clarifyBody.message, /verstehen oder.*formulieren/i);
+    assert.equal(clarifyBody.provider, undefined);
   });
 });
 

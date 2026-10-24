@@ -75,3 +75,165 @@ form.addEventListener("submit", async (event) => {
 text.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) form.requestSubmit();
 });
+
+const skillForm = document.querySelector("#skill-form");
+const skillText = document.querySelector("#skill-request-text");
+const skillRunButton = document.querySelector("#skill-run-button");
+const skillStatus = document.querySelector("#skill-status");
+const skillResult = document.querySelector("#skill-result");
+const skillResultMeta = document.querySelector("#skill-result-meta");
+const skillCitations = document.querySelector("#skill-citations");
+const skillCitationList = document.querySelector("#skill-citation-list");
+const attachmentList = document.querySelector("#attachment-list");
+const addAttachmentButton = document.querySelector("#add-attachment");
+const skillLabels = {
+  DOCUMENT_UNDERSTANDING: "Dokumente verstehen",
+  TEXT_COMPOSITION: "Texte formulieren",
+};
+let attachmentNumber = 0;
+let skillBusy = false;
+let activeSkillNonce = null;
+
+function setSkillStatus(message, kind = "") {
+  skillStatus.textContent = message;
+  skillStatus.className = `status ${kind}`.trim();
+}
+
+function newNonce() {
+  return `p7_${crypto.randomUUID().replaceAll("-", "_")}`;
+}
+
+function invalidateSkillResult() {
+  if (skillBusy) activeSkillNonce = null;
+}
+
+function addAttachment() {
+  if (attachmentList.childElementCount >= 4) {
+    setSkillStatus("At most four text attachments are supported", "error");
+    return;
+  }
+  attachmentNumber += 1;
+  const card = document.createElement("section");
+  card.className = "attachment-card";
+  const header = document.createElement("div");
+  header.className = "attachment-card-header";
+  const selectedLabel = document.createElement("label");
+  const selected = document.createElement("input");
+  selected.type = "checkbox";
+  selected.className = "attachment-selected";
+  selected.checked = true;
+  selectedLabel.append(selected, document.createTextNode(` Use attachment ${attachmentNumber}`));
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "remove-attachment";
+  remove.textContent = "Remove";
+  remove.addEventListener("click", () => { card.remove(); invalidateSkillResult(); });
+  header.append(selectedLabel, remove);
+  const titleLabel = document.createElement("label");
+  titleLabel.textContent = "Display title";
+  const title = document.createElement("input");
+  title.type = "text";
+  title.className = "attachment-title";
+  title.maxLength = 128;
+  title.value = `Synthetic text ${attachmentNumber}`;
+  titleLabel.append(title);
+  const bodyLabel = document.createElement("label");
+  bodyLabel.textContent = "Plain text";
+  const body = document.createElement("textarea");
+  body.className = "attachment-text";
+  body.maxLength = 12288;
+  body.rows = 5;
+  body.placeholder = "Paste synthetic plain text. Blank lines create host paragraph references.";
+  bodyLabel.append(body);
+  card.append(header, titleLabel, bodyLabel);
+  attachmentList.append(card);
+  body.focus();
+}
+
+function selectedAttachments() {
+  const attachments = [];
+  for (const card of attachmentList.querySelectorAll(".attachment-card")) {
+    if (!card.querySelector(".attachment-selected").checked) continue;
+    const title = card.querySelector(".attachment-title").value.trim();
+    const attachmentText = card.querySelector(".attachment-text").value;
+    if (!title || !attachmentText.trim()) throw new Error("incomplete_attachment");
+    attachments.push({ title, text: attachmentText });
+  }
+  return attachments;
+}
+
+function renderSkillResult(payload) {
+  skillResult.textContent = payload.message;
+  skillResult.className = payload.ok ? "result" : "result blocked";
+  skillResultMeta.replaceChildren();
+  skillCitationList.replaceChildren();
+  if (payload.ok) {
+    const values = [
+      `Applied skills: ${(payload.skillIds ?? []).map((id) => skillLabels[id] ?? id).join(" + ")}`,
+      `Runtime: ${payload.provider}`,
+      `Result parts: ${(payload.parts ?? []).map((part) => part.resultKind === "draft" ? "editable draft" : "local answer").join(" + ")}`,
+      `Selected sources: ${(payload.sourceTitles ?? []).join(", ") || "none"}`,
+    ];
+    for (const value of values) {
+      const item = document.createElement("span");
+      item.textContent = value;
+      skillResultMeta.append(item);
+    }
+    skillResultMeta.hidden = false;
+  } else skillResultMeta.hidden = true;
+  for (const citation of payload.citations ?? []) {
+    const item = document.createElement("li");
+    item.textContent = `${citation.sourceTitle} · ${citation.sectionLabel} · ${citation.paragraphLabel} (${citation.paragraphId})`;
+    skillCitationList.append(item);
+  }
+  skillCitations.hidden = skillCitationList.childElementCount === 0;
+  skillResult.focus();
+}
+
+addAttachmentButton.addEventListener("click", addAttachment);
+skillForm.addEventListener("input", invalidateSkillResult);
+skillForm.addEventListener("change", invalidateSkillResult);
+skillForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (skillBusy) return;
+  let attachments;
+  try {
+    attachments = selectedAttachments();
+  } catch {
+    setSkillStatus("Complete or deselect every selected attachment", "error");
+    return;
+  }
+  const requestNonce = newNonce();
+  activeSkillNonce = requestNonce;
+  skillBusy = true;
+  skillRunButton.disabled = true;
+  skillForm.setAttribute("aria-busy", "true");
+  setSkillStatus("Checking host scope and local skill…", "busy");
+  try {
+    const response = await fetch("/api/local-skills/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestNonce, text: skillText.value, attachments }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error("request_failed");
+    if (activeSkillNonce !== requestNonce || payload.requestNonce !== requestNonce) return;
+    renderSkillResult(payload);
+    setSkillStatus(payload.ok ? "Mechanical local test completed" : "More information is needed", payload.ok ? "" : "error");
+  } catch {
+    if (activeSkillNonce !== requestNonce) return;
+    skillResult.textContent = "The mechanical local test could not be completed. Your text remains in the form.";
+    skillResult.className = "result error";
+    skillResultMeta.hidden = true;
+    skillCitations.hidden = true;
+    setSkillStatus("Could not complete the local test", "error");
+    skillResult.focus();
+  } finally {
+    skillBusy = false;
+    skillRunButton.disabled = false;
+    skillForm.removeAttribute("aria-busy");
+  }
+});
+skillText.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) skillForm.requestSubmit();
+});

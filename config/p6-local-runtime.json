@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "name": "ollama",
+    "version": "v0.40.4",
+    "archiveUrl": "https://github.com/ollama/ollama/releases/download/v0.40.4/ollama-darwin.tgz",
+    "archiveSha256": "a4ceae4b2aaf18df37ebcbfb56ba3a37a87838631112d66c2be07268693c8d58",
+    "sourceUrl": "https://github.com/ollama/ollama/blob/v0.40.4/cmd/cmd.go#L2086-L2145"
+  },
+  "model": {
+    "tag": "qwen3:4b-instruct-2507-q4_K_M",
+    "manifestSha256": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+    "layers": [
+      {
+        "kind": "model",
+        "size": 2497280480,
+        "sha256": "85e4a5b7b8ef0e48af0e8658f5aaab9c2324c76c1641493f4d1e25fce54b18b9"
+      },
+      {
+        "kind": "template",
+        "size": 1379,
+        "sha256": "eade0a07cac7712787bbce23d12f9306adb4781d873d1df6e16f7840fa37afec"
+      },
+      {
+        "kind": "license",
+        "size": 11338,
+        "sha256": "d18a5cc71b84bc4af394a31116bd3932b42241de70c77d2b76d69a314ec8aa12"
+      },
+      {
+        "kind": "params",
+        "size": 119,
+        "sha256": "0914c7781e001948488d937994217538375b4fd8c1466c5e7a625221abd3ea7a"
+      }
+    ],
+    "registryUrl": "https://registry.ollama.com/library/qwen3:4b-instruct-2507-q4_K_M",
+    "license": "Apache-2.0"
+  }
+}

@@ -5,6 +5,10 @@ export type { ProviderTransport, TransportRequest, TransportResponse, TrustedTra
 export { DEMO_POLICY } from "./demoPolicy.js";
 export { classifyText, redactDirectIdentifiers } from "./privacyGate.js";
 export { validateTrustedPolicy, validateAgentRequest, authorizeRequest, validateTaskEvidence } from "./policy.js";
+export { InMemoryResearchAuthority, validateLocalResearchRequest } from "./localResearchAuthority.js";
+export { LocalResearchLane, OUTBOUND_TEXT, renderResearchIntent, validateClosedResearchIntent } from "./localResearchLane.js";
+export { ScopeBoundIdentifierRegister, isRegisterIdentifierType } from "./scopeBoundIdentifierRegister.js";
+export type * from "./localResearchTypes.js";
 export type * from "./types.js";
 
 export {

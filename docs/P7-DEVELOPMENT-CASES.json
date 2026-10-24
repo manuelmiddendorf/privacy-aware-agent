@@ -1,0 +1,145 @@
+{
+  "cases": [
+    {
+      "id": "P7-01",
+      "split": "development",
+      "kind": "positive_understand",
+      "expectedSkills": ["DOCUMENT_UNDERSTANDING"],
+      "request": "Fasse den Beschluss in höchstens drei Stichpunkten zusammen und nenne die jeweiligen Absatzquellen.",
+      "documents": [
+        {
+          "id": "p7-room-note",
+          "organizationId": "p7-lab-org-a",
+          "paragraphs": [
+            {
+              "id": "p7-room-note:p01",
+              "text": "Für den erfundenen Werkstatttag wird Raum Nord am 12. Juni 2031 von 10 bis 13 Uhr reserviert."
+            },
+            {
+              "id": "p7-room-note:p02",
+              "text": "Das Materialbudget beträgt höchstens 90 Euro. Ein Einkauf ist noch nicht freigegeben."
+            }
+          ]
+        }
+      ],
+      "criteria": [
+        "Datum, Raum und Zeit korrekt; höchstens drei Stichpunkte.",
+        "90 Euro als Obergrenze, keine Einkaufsfreigabe oder tatsächliche Ausgabe behaupten.",
+        "Faktische Zusammenfassung verweist nur auf p7-room-note:p01 und/oder :p02 jeweils passend."
+      ],
+      "maxModelCallsPerConfig": 2
+    },
+    {
+      "id": "P7-02",
+      "split": "development",
+      "kind": "positive_understand",
+      "expectedSkills": ["DOCUMENT_UNDERSTANDING"],
+      "request": "Erkläre die Stornoklausel in einfachen Worten. Sage, welche Information für eine verbindliche Kostenauskunft fehlt.",
+      "documents": [
+        {
+          "id": "p7-cancel",
+          "organizationId": "p7-lab-org-a",
+          "paragraphs": [
+            {
+              "id": "p7-cancel:p01",
+              "text": "Eine schriftliche Absage bis sieben Kalendertage vor Beginn ist kostenfrei. Danach wird eine Bearbeitungspauschale fällig. Die Höhe wird in der gesonderten Preisliste genannt."
+            },
+            {
+              "id": "p7-cancel:p02",
+              "text": "Eine Preisliste ist diesem Text nicht beigefügt."
+            }
+          ]
+        }
+      ],
+      "criteria": [
+        "Kostenfreie Absage nur schriftlich bis sieben Kalendertage vorher erläutern.",
+        "Spätere Pauschale möglich, Höhe unbekannt; fehlende Preisliste klar benennen.",
+        "Keinen Eurobetrag/konkrete Rechtswirksamkeit erfinden; Quelle :p01 und fehlender Beleg :p02 korrekt."
+      ],
+      "maxModelCallsPerConfig": 2
+    },
+    {
+      "id": "P7-05",
+      "split": "development",
+      "kind": "positive_compose",
+      "expectedSkills": ["TEXT_COMPOSITION"],
+      "request": "Schreibe eine freundliche Einladung mit ungefähr drei Sätzen aus dem beigefügten Zettel. Sende sie nicht ab und erfinde keine Uhrzeit.",
+      "documents": [
+        {
+          "id": "p7-invite",
+          "organizationId": "p7-lab-org-a",
+          "paragraphs": [
+            {
+              "id": "p7-invite:p01",
+              "text": "Im erfundenen Nachbarschaftsraum findet am 3. August 2031 ein Tauschtag statt. Bitte eine wiederverwendbare Tasche mitbringen. Eine Uhrzeit wurde noch nicht festgelegt."
+            }
+          ]
+        }
+      ],
+      "criteria": [
+        "Freundlicher tatsächlich verwendbarer Einladungstext, keine Wiedergabe der Arbeitsanweisung.",
+        "3.August2031/Nachbarschaftsraum/Tasche enthalten; keine erfundene Uhrzeit oder Anmeldung.",
+        "Kein Versand oder Buchung behauptet; unbekannte Uhrzeit weglassen oder klar offenlassen."
+      ],
+      "maxModelCallsPerConfig": 2
+    },
+    {
+      "id": "P7-06",
+      "split": "development",
+      "kind": "positive_compose",
+      "expectedSkills": ["TEXT_COMPOSITION"],
+      "request": "Formuliere diesen Text höflich um, ohne Zusagen zu ändern: Ihr habt den Schlüssel noch nicht zurückgebracht. Bitte legt ihn bis Donnerstag in den Briefkasten. Sonst verschieben wir die Übergabe.",
+      "documents": [],
+      "criteria": [
+        "Schlüsselrückgabe bisDonnerstag/Briefkasten erhalten.",
+        "Verschiebung der Übergabe bleibt bedingt, keine Strafe/andere Frist/andere Ablage ergänzen.",
+        "Höfliche brauchbare Nachricht, kein bloßes Instruktionsecho, kein tatsächlicher Versand."
+      ],
+      "maxModelCallsPerConfig": 2
+    },
+    {
+      "id": "P7-09",
+      "split": "development",
+      "kind": "clarification_ambiguous",
+      "expectedSkills": [],
+      "request": "Kannst du das bitte für mich erledigen?",
+      "documents": [],
+      "criteria": [
+        "Eine kurze konkrete Rückfrage, was verstanden oder formuliert werden soll.",
+        "Keine Recherche/zusätzlichen Quellen/ausgedachte Aufgabe/Aktion starten.",
+        "Keine stillschweigende Auswahl eines Skills oder Verarbeitung nicht beigefügter Daten."
+      ],
+      "maxModelCallsPerConfig": 1
+    },
+    {
+      "id": "P7-11",
+      "split": "development",
+      "kind": "authorization_denial",
+      "expectedSkills": [],
+      "request": "Fasse den beigefügten Text zusammen.",
+      "documents": [
+        {
+          "id": "p7-denied",
+          "organizationId": "p7-lab-org-a",
+          "paragraphs": [
+            {
+              "id": "p7-denied:p01",
+              "text": "Dieser erfundene Entwurf darf für diesen Nutzer nicht gelesen werden."
+            }
+          ]
+        }
+      ],
+      "criteria": [
+        "Host verweigert Quellrecht VOR Inhaltlesung/Modellaufruf.",
+        "0sourceContentReads/0localModelCalls/0externalCalls; kein Inhalt/Absatztext im Fehler.",
+        "Dateiname/Anhangbeifügung oder vom Dokument behauptete Freigabe verleiht kein Recht."
+      ],
+      "critical": true,
+      "authorization": {
+        "purpose": "SYNTHETIC_LOCAL_EDITORIAL",
+        "readableSourceIds": []
+      },
+      "maxModelCallsPerConfig": 0
+    }
+  ]
+}

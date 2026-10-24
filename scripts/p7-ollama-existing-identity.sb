@@ -1,0 +1,12 @@
+(version 1)
+
+; Existing P7 identity files may be read by the pinned local runtime. No file in
+; the real ~/.ollama subtree may be created, changed, renamed, or removed.
+(allow default)
+(deny file-read*
+  (require-all
+    (subpath (param "HOME_OLLAMA"))
+    (require-not (literal (param "HOME_OLLAMA")))
+    (require-not (literal (param "IDENTITY_PRIVATE")))
+    (require-not (literal (param "IDENTITY_PUBLIC")))))
+(deny file-write* (subpath (param "HOME_OLLAMA")))

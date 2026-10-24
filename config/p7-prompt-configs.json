@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "model": "qwen3:4b-instruct-2507-q4_K_M",
+  "manifestSha256": "0edcdef34593eac1aa2be9c7d06c432dcf81945adca5eca2f27662c18f168ba0",
+  "commonLimits": {
+    "numCtx": 16384,
+    "proposalOutputTokens": 128,
+    "generationOutputTokens": 768,
+    "maxModelPromptBytes": 12288,
+    "maxHttpRequestBytes": 24576,
+    "temperature": 0,
+    "seed": 29,
+    "automaticRetries": 0
+  },
+  "configurations": [
+    {
+      "id": "P7_SKILLS_A",
+      "canonicalPromptSha256": "aecd1de45873952ab932c7591de9cf40b416277ae161b7b52159d38d2199012e"
+    },
+    {
+      "id": "P7_SKILLS_B",
+      "canonicalPromptSha256": "086f03498699736663a2f5c0874bcf7e2d6ebe41893eb1b3441adab9d9d4adca"
+    }
+  ]
+}

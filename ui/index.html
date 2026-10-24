@@ -52,6 +52,38 @@
         <div id="result" class="result empty" tabindex="-1">Run a synthetic request to see the result.</div>
         <div id="citations" class="citations" hidden><h3>Sources</h3><ul id="citation-list"></ul></div>
       </section>
+
+      <section class="panel experiment" aria-labelledby="skills-heading">
+        <div class="section-heading">
+          <div><p class="step">P7 local experiment</p><h2 id="skills-heading">Local skills for synthetic text</h2></div>
+          <div class="mode compact" aria-label="Local skill runtime"><strong>LOCAL_TEST_DOUBLE</strong><span>Real local model: not connected</span></div>
+        </div>
+        <p class="experiment-warning">Use synthetic text only. This mechanical test does not store text, use files, contact external services, or prove that pasted content is fictional. The effective local-model context limit is smaller than the outer form limit, so oversized input stops without truncation.</p>
+        <ul class="skill-catalog" aria-label="Local skill catalog">
+          <li><strong>Dokumente verstehen</strong><span class="badge available">Mechanical test</span><small>Answer with host-validated paragraph references.</small></li>
+          <li><strong>Informationen vergleichen</strong><span class="badge planned">Planned</span></li>
+          <li><strong>Texte formulieren</strong><span class="badge available">Mechanical test</span><small>Editable draft only; nothing is sent.</small></li>
+          <li><strong>Vorgänge vorbereiten</strong><span class="badge planned">Planned</span></li>
+          <li><strong>Allgemein recherchieren</strong><span class="badge planned">Planned</span><small>No external research is enabled.</small></li>
+        </ul>
+
+        <form id="skill-form">
+          <label for="skill-request-text">What should be understood or drafted?</label>
+          <textarea id="skill-request-text" rows="6" maxlength="8192" required placeholder="Describe the synthetic task. The host validates the proposed skill."></textarea>
+          <p class="hint">No skill selection is required. Ambiguous or planned tasks return a short question and do not expand source access.</p>
+          <div class="attachment-heading"><div><h3>Selected text attachments</h3><p class="hint">Plain text only; no upload, file path, URL, OCR, mailbox, or database access.</p></div><button id="add-attachment" class="secondary" type="button">Add text attachment</button></div>
+          <div id="attachment-list" class="attachment-list"></div>
+          <p class="hint">Outer limit: four attachments and 24 KiB combined. Effective model-context limit: 12 KiB including a conservative fixed prompt reserve. Text is never silently shortened.</p>
+          <div class="actions"><button id="skill-run-button" type="submit">Run mechanical local test</button><span id="skill-status" class="status" role="status" aria-live="polite">Ready</span></div>
+        </form>
+      </section>
+
+      <section class="panel response-panel experiment" aria-labelledby="skill-response-heading">
+        <p class="step">P7 result</p><h2 id="skill-response-heading">Local skill response</h2>
+        <div id="skill-result-meta" class="result-meta" hidden></div>
+        <div id="skill-result" class="result empty" tabindex="-1">Run a synthetic local skill request to see the mechanical result.</div>
+        <div id="skill-citations" class="citations" hidden><h3>Host-validated paragraph references</h3><ul id="skill-citation-list"></ul><p class="hint">A valid paragraph ID proves source membership, not meaning or factual accuracy.</p></div>
+      </section>
     </main>
     <script src="/app.js" type="module"></script>
   </body>
