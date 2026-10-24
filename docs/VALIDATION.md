@@ -31,4 +31,4 @@ The nine focused adapter tests cover default-disabled behavior and separate meth
 
 ## License note
 
-The project uses the MIT License. Reuse, modification, and distribution are permitted when the copyright and permission notice are retained. The license includes its standard warranty and liability disclaimer; it does not provide a privacy or compliance assurance.
+The current project is source-available under the PolyForm Noncommercial License 1.0.0 and is not OSI open source. Noncommercial use is governed by that unmodified license; commercial use requires separate permission unless the license already covers the specific use. The public history through commit `71ca143160bb29b870aa2aaa882776a2eb09cd7b` remains under the MIT terms that applied to those versions. Neither license is a privacy or compliance assurance.

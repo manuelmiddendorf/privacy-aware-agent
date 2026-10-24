@@ -2,14 +2,14 @@
 
 A small TypeScript/Node reference implementation of a policy-bound assistant. Its defining rule is **privacy gate before model access**: missing or explicitly insufficient evidence, sensitive content, uncertain content, denied sources, and technical gate failures stop before a provider call.
 
-Version 0.1 is local and intentionally limited. It uses a deterministic provider named `MOCK_OFFLINE`, synthetic help documents, and no API keys, live model, external actions, arbitrary URLs, or file access.
+Version 0.1 is offline and intentionally limited. It uses a deterministic provider named `MOCK_OFFLINE`, synthetic help documents, and no API keys, live model, external actions, arbitrary URLs, or file access.
 
 ## Quick start
 
 Requires Node.js 20 or newer.
 
 ```sh
-npm install
+npm ci
 npm run typecheck
 npm test
 npm run test:adapter
@@ -68,4 +68,6 @@ See [Architecture](docs/ARCHITECTURE.md) and [Contributing](CONTRIBUTING.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+This project is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). It is not open source under the OSI definition. Noncommercial use is permitted according to the license; commercial use requires separate permission unless the license already covers the specific use.
+
+The public history through commit `71ca143160bb29b870aa2aaa882776a2eb09cd7b` remains available under the MIT terms that applied to those versions. This change does not revoke rights already granted for those historical versions. Rights needed for any future commercial licensing of third-party contributions remain a separate project decision.
