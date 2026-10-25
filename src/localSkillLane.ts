@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { isExecutableLocalSkillId, isLocalSkillId, supportsLocalSkillCombinationList } from "./localSkillCatalog.js";
+import { isExecutableLocalSkillId, supportsLocalSkillCombinationList } from "./localSkillCatalog.js";
 import { LocalSkillAuthority } from "./localSkillAuthority.js";
 import { isTrustedLocalSkillSource, snapshotAuthorizedLocalSkillSources } from "./localSkillSources.js";
 import type {
@@ -14,7 +14,7 @@ import type {
 } from "./localSkillTypes.js";
 
 const REQUEST_KEYS = ["schemaVersion", "requestNonce", "text", "sources"] as const;
-const PROPOSAL_KEYS = ["schemaVersion", "decision", "skillIds", "clarificationCode"] as const;
+const PROPOSAL_KEYS = ["schemaVersion", "route"] as const;
 const GENERATION_KEYS = ["schemaVersion", "parts"] as const;
 const PART_KEYS = ["skillId", "kind", "text", "citationParagraphIds"] as const;
 const FIXED_PROMPT_OVERHEAD_BYTES = 4_096;
@@ -57,24 +57,22 @@ function contextFits(value: unknown, maxBytes: number): boolean {
 
 type Proposal = {
   schemaVersion: 1;
-  decision: "select" | "clarify" | "unsupported";
-  skillIds: readonly import("./localSkillTypes.js").LocalSkillId[];
-  clarificationCode: "NEED_TASK_OR_SOURCE" | "UNSUPPORTED_REQUEST" | null;
+  route: "UNDERSTAND_DOCUMENTS" | "COMPOSE_TEXT" | "UNDERSTAND_THEN_COMPOSE" | "CLARIFY" | "UNSUPPORTED";
 };
 
 function parseProposal(value: unknown, maxBytes: number): Proposal | undefined {
-  if (!plainRecord(value) || !exactKeys(value, PROPOSAL_KEYS) || value.schemaVersion !== 1 ||
-      Buffer.byteLength(JSON.stringify(value), "utf8") > maxBytes ||
-      !["select", "clarify", "unsupported"].includes(value.decision as string) || !Array.isArray(value.skillIds) ||
-      value.skillIds.length > 2 || !value.skillIds.every(isLocalSkillId) ||
-      new Set(value.skillIds).size !== value.skillIds.length) return undefined;
-  if (value.decision === "select") {
-    return value.skillIds.length > 0 && value.clarificationCode === null ? value as Proposal : undefined;
-  }
-  if (value.skillIds.length !== 0) return undefined;
-  if (value.decision === "clarify" && value.clarificationCode === "NEED_TASK_OR_SOURCE") return value as Proposal;
-  if (value.decision === "unsupported" && value.clarificationCode === "UNSUPPORTED_REQUEST") return value as Proposal;
-  return undefined;
+  return plainRecord(value) && exactKeys(value, PROPOSAL_KEYS) && value.schemaVersion === 1 &&
+    Buffer.byteLength(JSON.stringify(value), "utf8") <= maxBytes &&
+    ["UNDERSTAND_DOCUMENTS", "COMPOSE_TEXT", "UNDERSTAND_THEN_COMPOSE", "CLARIFY", "UNSUPPORTED"].includes(value.route as string)
+    ? value as Proposal
+    : undefined;
+}
+
+function skillsForRoute(route: Proposal["route"]): readonly ExecutableLocalSkillId[] {
+  if (route === "UNDERSTAND_DOCUMENTS") return ["DOCUMENT_UNDERSTANDING"];
+  if (route === "COMPOSE_TEXT") return ["TEXT_COMPOSITION"];
+  if (route === "UNDERSTAND_THEN_COMPOSE") return ["DOCUMENT_UNDERSTANDING", "TEXT_COMPOSITION"];
+  return [];
 }
 
 function stopped(requestNonce: string, reasonCode: LocalSkillStopped["reasonCode"], message: string): LocalSkillResult {
@@ -140,17 +138,18 @@ export class LocalSkillLane {
     }
     const proposal = parseProposal(rawProposal, this.authority.policy.limits.maxProposalBytes);
     if (!proposal) return stopped(request.requestNonce, "LOCAL_SKILL_MODEL_SCHEMA", "Der lokale Vorschlag hatte ein ungültiges Format.");
-    if (proposal.decision === "clarify") {
+    if (proposal.route === "CLARIFY") {
       return stopped(request.requestNonce, "LOCAL_SKILL_CLARIFICATION_REQUIRED", "Möchtest du ausgewählte Texte verstehen oder einen Textentwurf formulieren?");
     }
-    if (proposal.decision === "unsupported") {
+    if (proposal.route === "UNSUPPORTED") {
       return stopped(request.requestNonce, "LOCAL_SKILL_UNSUPPORTED", "Diese Aufgabe wird im lokalen Experiment noch nicht unterstützt.");
     }
-    if (!proposal.skillIds.every(isExecutableLocalSkillId) ||
-        !proposal.skillIds.every((skillId) => this.authority.policy.executableSkillIds.includes(skillId))) {
+    const proposedSkills = skillsForRoute(proposal.route);
+    if (!proposedSkills.every(isExecutableLocalSkillId) ||
+        !proposedSkills.every((skillId) => this.authority.policy.executableSkillIds.includes(skillId))) {
       return stopped(request.requestNonce, "LOCAL_SKILL_CLARIFICATION_REQUIRED", "Dieser Skill ist erst geplant. Bitte frage nach Dokumentverständnis oder einem Textentwurf.");
     }
-    const skillIds = proposal.skillIds as readonly ExecutableLocalSkillId[];
+    const skillIds = proposedSkills;
     if (!supportsLocalSkillCombinationList(skillIds, documents)) {
       return stopped(request.requestNonce, "LOCAL_SKILL_COMBINATION_DENIED", "Für diese Aufgabe fehlt ein ausdrücklich ausgewählter Text.");
     }

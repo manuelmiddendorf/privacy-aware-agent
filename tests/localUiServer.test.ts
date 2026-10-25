@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
 import { createServer, request as httpRequest, type Server } from "node:http";
 import test from "node:test";
-import { createLocalUiRequestHandler, type LocalSkillUiRunner, type OfflineUiRunner } from "../src/localUiServer.js";
+import { createLocalUiRequestHandler, createWorkingTimeUiRunner, type LocalSkillUiRunner, type OfflineUiRunner, type WorkingTimeUiRunner } from "../src/localUiServer.js";
+import type { WorkingTimeWorkflowModel } from "../src/workingTimeContractWorkflow.js";
 
 async function withServer(
   runner: OfflineUiRunner | undefined,
   run: (url: string) => Promise<void>,
   skillRunner?: LocalSkillUiRunner,
+  workingTimeRunner?: WorkingTimeUiRunner,
 ): Promise<void> {
-  const handler = createLocalUiRequestHandler(runner, skillRunner);
+  const handler = createLocalUiRequestHandler(runner, skillRunner, workingTimeRunner);
   const server: Server = createServer((request, response) => { void handler(request, response); });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -23,6 +25,7 @@ async function withServer(
 const requestHeaders = (url: string) => ({ Origin: url, "Content-Type": "application/json" });
 const post = (url: string, body: unknown) => fetch(`${url}/api/run`, { method: "POST", headers: requestHeaders(url), body: JSON.stringify(body) });
 const postSkill = (url: string, body: unknown) => fetch(`${url}/api/local-skills/run`, { method: "POST", headers: requestHeaders(url), body: JSON.stringify(body) });
+const postWorkingTime = (url: string, body: unknown) => fetch(`${url}/api/working-time/run`, { method: "POST", headers: requestHeaders(url), body: JSON.stringify(body) });
 const getWithHost = (url: string, host: string) => new Promise<number>((resolve, reject) => {
   const request = httpRequest(url, { headers: { Host: host } }, (response) => {
     response.resume();
@@ -57,7 +60,15 @@ test("local UI serves only its fixed assets with defensive headers", async () =>
   await withServer(undefined, async (url) => {
     const page = await fetch(`${url}/`);
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /MOCK_OFFLINE/);
+    const html = await page.text();
+    assert.match(html, /MOCK_OFFLINE/);
+    assert.match(html, /id="working-time-hours"[^>]+min="0\.01"[^>]+max="168"[^>]+step="any"/);
+    assert.match(html, /label for="working-time-person"[\s\S]*select id="working-time-person"/);
+    assert.match(html, /label for="working-time-hours"[\s\S]*input id="working-time-hours"/);
+    assert.match(html, /label for="working-time-date"[\s\S]*input id="working-time-date"/);
+    assert.match(html, /label for="working-time-research"[\s\S]*select id="working-time-research"/);
+    assert.match(html, /label for="working-time-template"[\s\S]*select id="working-time-template"/);
+    assert.doesNotMatch(html, /UI-Aufrufe bis zur Abnahme deaktiviert/);
     assert.match(page.headers.get("content-security-policy") ?? "", /default-src 'none'/);
     assert.equal(page.headers.get("access-control-allow-origin"), null);
 
@@ -65,14 +76,117 @@ test("local UI serves only its fixed assets with defensive headers", async () =>
     const javascript = await script.text();
     assert.equal(script.status, 200);
     assert.doesNotMatch(javascript, /innerHTML|OPENAI_API_KEY|\.env|\.local/);
-    assert.equal([...javascript.matchAll(/fetch\(/g)].length, 2);
+    assert.equal([...javascript.matchAll(/fetch\(/g)].length, 3);
     assert.match(javascript, /fetch\("\/api\/run"/);
     assert.match(javascript, /fetch\("\/api\/local-skills\/run"/);
+    assert.match(javascript, /fetch\("\/api\/working-time\/run"/);
+    assert.match(javascript, /workingTimeRevision/);
+    assert.match(javascript, /workingTimeController\?\.abort/);
+    assert.match(javascript, /workingTimeDraftEditRevision/);
+    assert.match(javascript, /Die neue Antwort wurde deshalb nicht übernommen/);
+    assert.match(javascript, /function showWorkingTimeClarification[\s\S]*workingTimeQuestions\.hidden = false;[\s\S]*function showWorkingTimeDraft[\s\S]*workingTimeQuestions\.replaceChildren\(\);[\s\S]*workingTimeQuestions\.hidden = true;/);
+    assert.match(javascript, /editable-draft/);
     assert.doesNotMatch(javascript, /localStorage|indexedDB/);
 
     assert.equal((await fetch(`${url}/.env.openai.local`)).status, 404);
     assert.equal((await fetch(`${url}/..%2f.local%2fopenai-live-demo-budget.json`)).status, 404);
   });
+});
+
+test("working-time HTTP boundary rejects browser authority and stale confirmation snapshots", async () => {
+  await withServer(undefined, async (url) => {
+    const base = { requestNonce: "p8_nonce_3001", revision: 1, text: "Bereite einen synthetischen Entwurf vor.", intent: { personId: null, targetWeeklyHours: null, effectiveDate: null, researchRequested: null, templateRequested: null }, confirmation: null };
+    assert.equal((await postWorkingTime(url, { ...base, organizationId: "OrgWF-A" })).status, 400);
+    assert.equal((await postWorkingTime(url, { ...base, actorId: "ActorWF-A" })).status, 400);
+    assert.equal((await postWorkingTime(url, { ...base, sourceId: "contract-lina" })).status, 400);
+    assert.equal((await postWorkingTime(url, { ...base, intent: { ...base.intent, personId: "person-foreign" } })).status, 400);
+    const intent = { personId: "person-lina", targetWeeklyHours: 25, effectiveDate: "2031-09-01", researchRequested: false, templateRequested: false };
+    assert.equal((await postWorkingTime(url, { ...base, intent, confirmation: { ...intent, revision: 2, text: base.text } })).status, 400);
+    assert.equal((await postWorkingTime(url, { ...base, intent, confirmation: { ...intent, revision: 1, text: `${base.text} verändert` } })).status, 400);
+    const halfHourIntent = { ...intent, targetWeeklyHours: 25.5 };
+    assert.equal((await postWorkingTime(url, { ...base, intent: halfHourIntent, confirmation: { ...halfHourIntent, revision: 1, text: base.text } })).status, 200);
+    assert.equal((await fetch(`${url}/api/working-time/run`, { method: "GET" })).status, 405);
+  });
+});
+
+test("working-time UI runner asks neutrally then handles a separately confirmed action", async () => {
+  let planCalls = 0;
+  let draftCalls = 0;
+  const model: WorkingTimeWorkflowModel = {
+    name: "LOCAL_WORKING_TIME_TEST_DOUBLE",
+    get planCallCount() { return planCalls; },
+    get draftCallCount() { return draftCalls; },
+    async plan(input) {
+      planCalls += 1;
+      const complete = /Bestätigt:/.test(input.requestText);
+      return { schemaVersion: 1, task: "employment_contract_change", personId: "person-lina", targetWeeklyHours: complete ? 25 : null, effectiveDate: complete ? "2031-09-01" : null, researchRequested: complete ? false : null, templateRequested: complete ? false : null, requiredSourceFields: ["display_name", "current_weekly_hours", "contract_paragraphs", "unchanged_terms"] };
+    },
+    async draft() {
+      draftCalls += 1;
+      return { schemaVersion: 1, documentKind: "working_time_amendment", displayName: "Lina Mustervertrag", currentWeeklyHours: 20, targetWeeklyHours: 25, effectiveDate: "2031-09-01", unchangedTermsConfirmed: true, citations: ["contract-lina:p01", "contract-lina:p02"], conflicts: [], openPoints: [], reviewNotes: ["Ungeprüfter Modellhinweis."] };
+    },
+  };
+  await withServer(undefined, async (url) => {
+    const initial = { requestNonce: "p8_nonce_3101", revision: 1, text: "Bereite bitte einen unverbindlichen Entwurf zur Änderung der Wochenarbeitszeit vor.", intent: { personId: null, targetWeeklyHours: null, effectiveDate: null, researchRequested: null, templateRequested: null }, confirmation: null };
+    const clarificationResponse = await postWorkingTime(url, initial);
+    const clarification = await clarificationResponse.json() as Record<string, any>;
+    assert.equal(clarificationResponse.status, 200);
+    assert.equal(clarification.kind, "clarification");
+    assert.equal(clarification.proposedIntent.personId, null);
+    assert.equal(clarification.proposedIntent.personLabel, null);
+    assert.match(clarification.questions[0], /Für welche synthetische Person/);
+    assert.equal(draftCalls, 0);
+
+    const text = "Bestätigt: Erstelle für Lina Mustervertrag einen unverbindlichen Entwurf zur Änderung auf 25 Wochenstunden ab 2031-09-01.";
+    const intent = { personId: "person-lina", targetWeeklyHours: 25, effectiveDate: "2031-09-01", researchRequested: false, templateRequested: false };
+    const confirmedResponse = await postWorkingTime(url, { requestNonce: "p8_nonce_3102", revision: 2, text, intent, confirmation: { ...intent, revision: 2, text } });
+    const confirmed = await confirmedResponse.json() as Record<string, any>;
+    assert.equal(confirmed.kind, "draft");
+    assert.equal(confirmed.provider, "LOCAL_WORKING_TIME_TEST_DOUBLE");
+    assert.deepEqual(confirmed.citations, ["contract-lina:p01", "contract-lina:p02"]);
+    assert.equal(confirmed.researchUsed, false);
+    assert.equal(confirmed.templateUsed, false);
+    assert.equal(confirmed.templateLabel, "Lokale feste Vorlage");
+    assert.equal(planCalls, 2);
+    assert.equal(draftCalls, 1);
+  }, undefined, createWorkingTimeUiRunner(model));
+});
+
+test("working-time HTTP work aborts when the browser disconnects after sending the body", async () => {
+  let start!: () => void;
+  let observedAbort!: () => void;
+  const started = new Promise<void>((resolve) => { start = resolve; });
+  const aborted = new Promise<void>((resolve) => { observedAbort = resolve; });
+  let followUpWork = 0;
+  const runner: WorkingTimeUiRunner = async (command, signal) => {
+    start();
+    await new Promise<void>((resolve) => {
+      if (signal.aborted) resolve();
+      else signal.addEventListener("abort", () => resolve(), { once: true });
+    });
+    if (signal.aborted) observedAbort();
+    else followUpWork += 1;
+    return { ok: false, requestNonce: command.requestNonce, revision: command.revision, kind: "error", message: "stopped" };
+  };
+  await withServer(undefined, async (url) => {
+    const body = JSON.stringify({
+      requestNonce: "p8_nonce_disconnect",
+      revision: 1,
+      text: "Bereite einen synthetischen Entwurf vor.",
+      intent: { personId: null, targetWeeklyHours: null, effectiveDate: null, researchRequested: null, templateRequested: null },
+      confirmation: null,
+    });
+    const client = httpRequest(`${url}/api/working-time/run`, {
+      method: "POST",
+      headers: { ...requestHeaders(url), "Content-Length": Buffer.byteLength(body) },
+    });
+    client.on("error", () => undefined);
+    client.end(body);
+    await started;
+    client.destroy();
+    await aborted;
+    assert.equal(followUpWork, 0);
+  }, undefined, runner);
 });
 
 test("local skill HTTP boundary rejects authority fields and oversized or malformed attachments", async () => {

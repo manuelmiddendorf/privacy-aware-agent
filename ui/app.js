@@ -93,6 +93,7 @@ const skillLabels = {
 let attachmentNumber = 0;
 let skillBusy = false;
 let activeSkillNonce = null;
+let skillController = null;
 
 function setSkillStatus(message, kind = "") {
   skillStatus.textContent = message;
@@ -104,10 +105,14 @@ function newNonce() {
 }
 
 function invalidateSkillResult() {
-  if (skillBusy) activeSkillNonce = null;
+  if (skillBusy) {
+    activeSkillNonce = null;
+    skillController?.abort();
+  }
 }
 
 function addAttachment() {
+  invalidateSkillResult();
   if (attachmentList.childElementCount >= 4) {
     setSkillStatus("At most four text attachments are supported", "error");
     return;
@@ -163,7 +168,7 @@ function selectedAttachments() {
 }
 
 function renderSkillResult(payload) {
-  skillResult.textContent = payload.message;
+  skillResult.replaceChildren();
   skillResult.className = payload.ok ? "result" : "result blocked";
   skillResultMeta.replaceChildren();
   skillCitationList.replaceChildren();
@@ -180,7 +185,27 @@ function renderSkillResult(payload) {
       skillResultMeta.append(item);
     }
     skillResultMeta.hidden = false;
-  } else skillResultMeta.hidden = true;
+    for (const [index, part] of (payload.parts ?? []).entries()) {
+      if (part.resultKind === "draft") {
+        const label = document.createElement("label");
+        label.textContent = `Bearbeitbarer Entwurf ${index + 1}`;
+        const editor = document.createElement("textarea");
+        editor.className = "editable-draft";
+        editor.rows = 9;
+        editor.value = part.text;
+        label.append(editor);
+        skillResult.append(label);
+      } else {
+        const answer = document.createElement("p");
+        answer.textContent = part.text;
+        skillResult.append(answer);
+      }
+    }
+    if (!(payload.parts ?? []).length) skillResult.textContent = payload.message;
+  } else {
+    skillResultMeta.hidden = true;
+    skillResult.textContent = payload.message;
+  }
   for (const citation of payload.citations ?? []) {
     const item = document.createElement("li");
     item.textContent = `${citation.sourceTitle} · ${citation.sectionLabel} · ${citation.paragraphLabel} (${citation.paragraphId})`;
@@ -206,6 +231,7 @@ skillForm.addEventListener("submit", async (event) => {
   const requestNonce = newNonce();
   activeSkillNonce = requestNonce;
   skillBusy = true;
+  skillController = new AbortController();
   skillRunButton.disabled = true;
   skillForm.setAttribute("aria-busy", "true");
   setSkillStatus("Checking host scope and local skill…", "busy");
@@ -214,6 +240,7 @@ skillForm.addEventListener("submit", async (event) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ requestNonce, text: skillText.value, attachments }),
+      signal: skillController.signal,
     });
     const payload = await response.json();
     if (!response.ok) throw new Error("request_failed");
@@ -230,10 +257,183 @@ skillForm.addEventListener("submit", async (event) => {
     skillResult.focus();
   } finally {
     skillBusy = false;
+    skillController = null;
     skillRunButton.disabled = false;
     skillForm.removeAttribute("aria-busy");
   }
 });
 skillText.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) skillForm.requestSubmit();
+});
+
+const workingTimeForm = document.querySelector("#working-time-form");
+const workingTimeText = document.querySelector("#working-time-text");
+const workingTimeFields = document.querySelector("#working-time-fields");
+const workingTimePerson = document.querySelector("#working-time-person");
+const workingTimeHours = document.querySelector("#working-time-hours");
+const workingTimeDate = document.querySelector("#working-time-date");
+const workingTimeResearch = document.querySelector("#working-time-research");
+const workingTimeTemplate = document.querySelector("#working-time-template");
+const workingTimeConfirm = document.querySelector("#working-time-confirm");
+const workingTimeQuestions = document.querySelector("#working-time-questions");
+const workingTimeRunButton = document.querySelector("#working-time-run-button");
+const workingTimeStatus = document.querySelector("#working-time-status");
+const workingTimeEmpty = document.querySelector("#working-time-empty");
+const workingTimeResult = document.querySelector("#working-time-result");
+const workingTimeDraft = document.querySelector("#working-time-draft");
+const workingTimeGaps = document.querySelector("#working-time-gaps");
+const workingTimeReviewNotes = document.querySelector("#working-time-review-notes");
+const workingTimeCitations = document.querySelector("#working-time-citations");
+const workingTimeResearchLabel = document.querySelector("#working-time-research-label");
+const workingTimeTemplateLabel = document.querySelector("#working-time-template-label");
+let workingTimeRevision = 1;
+let workingTimeBusy = false;
+let workingTimeNonce = null;
+let workingTimeController = null;
+let workingTimeDraftEditRevision = 0;
+
+function setWorkingTimeStatus(message, kind = "") {
+  workingTimeStatus.textContent = message;
+  workingTimeStatus.className = `status ${kind}`.trim();
+}
+
+function invalidateWorkingTimeRequest() {
+  workingTimeRevision += 1;
+  workingTimeConfirm.checked = false;
+  if (workingTimeBusy) {
+    workingTimeNonce = null;
+    workingTimeController?.abort();
+  }
+  setWorkingTimeStatus("Eingabe geändert – bitte erneut prüfen und bestätigen");
+}
+
+function workingTimeIntent() {
+  const hours = workingTimeHours.value === "" ? null : Number(workingTimeHours.value);
+  return {
+    personId: workingTimePerson.value || null,
+    targetWeeklyHours: hours,
+    effectiveDate: workingTimeDate.value || null,
+    researchRequested: workingTimeResearch.value === "" ? null : workingTimeResearch.value === "true",
+    templateRequested: workingTimeTemplate.value === "" ? null : workingTimeTemplate.value === "true",
+  };
+}
+
+function renderList(element, values) {
+  element.replaceChildren();
+  for (const value of values) {
+    const item = document.createElement("li");
+    item.textContent = value;
+    element.append(item);
+  }
+  if (values.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "Keine angegeben.";
+    element.append(item);
+  }
+}
+
+function showWorkingTimeClarification(payload) {
+  workingTimeFields.hidden = false;
+  workingTimeQuestions.hidden = false;
+  if (payload.proposedIntent.personId !== null) workingTimePerson.value = payload.proposedIntent.personId;
+  if (payload.proposedIntent.targetWeeklyHours !== null) workingTimeHours.value = String(payload.proposedIntent.targetWeeklyHours);
+  if (payload.proposedIntent.effectiveDate !== null) workingTimeDate.value = payload.proposedIntent.effectiveDate;
+  if (payload.proposedIntent.researchRequested !== null) workingTimeResearch.value = String(payload.proposedIntent.researchRequested);
+  if (payload.proposedIntent.templateRequested !== null) workingTimeTemplate.value = String(payload.proposedIntent.templateRequested);
+  workingTimeQuestions.replaceChildren();
+  const heading = document.createElement("strong");
+  heading.textContent = "Bitte noch bestätigen:";
+  const list = document.createElement("ul");
+  renderList(list, payload.questions);
+  workingTimeQuestions.append(heading, list);
+  workingTimeConfirm.checked = false;
+  workingTimeRunButton.textContent = "Bestätigten Entwurf erstellen";
+}
+
+function showWorkingTimeDraft(payload) {
+  workingTimeEmpty.hidden = true;
+  workingTimeResult.hidden = false;
+  workingTimeQuestions.replaceChildren();
+  workingTimeQuestions.hidden = true;
+  workingTimeDraft.value = payload.draft;
+  renderList(workingTimeGaps, payload.gaps ?? []);
+  renderList(workingTimeReviewNotes, payload.reviewNotes ?? []);
+  renderList(workingTimeCitations, payload.citations ?? []);
+  workingTimeResearchLabel.hidden = !payload.researchUsed;
+  workingTimeResearchLabel.textContent = payload.researchLabel ?? "";
+  workingTimeTemplateLabel.textContent = payload.templateLabel;
+  workingTimeDraft.focus();
+}
+
+function handleWorkingTimeFormChange(event) {
+  if (event.target === workingTimeConfirm) {
+    if (!workingTimeConfirm.checked) invalidateWorkingTimeRequest();
+    return;
+  }
+  invalidateWorkingTimeRequest();
+}
+workingTimeForm.addEventListener("input", handleWorkingTimeFormChange);
+workingTimeForm.addEventListener("change", handleWorkingTimeFormChange);
+workingTimeDraft.addEventListener("input", () => {
+  workingTimeDraftEditRevision += 1;
+});
+workingTimeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (workingTimeBusy) return;
+  const intent = workingTimeIntent();
+  let confirmation = null;
+  if (!workingTimeFields.hidden) {
+    if (Object.values(intent).some((value) => value === null)) {
+      setWorkingTimeStatus("Bitte Person, Wochenstunden, Datum, Referenz- und Vorlagenwunsch vollständig angeben", "error");
+      return;
+    }
+    if (!workingTimeConfirm.checked) {
+      setWorkingTimeStatus("Bitte die aktuellen Angaben ausdrücklich bestätigen", "error");
+      return;
+    }
+    confirmation = { ...intent, revision: workingTimeRevision, text: workingTimeText.value };
+  }
+  const requestNonce = `p8_${crypto.randomUUID().replaceAll("-", "_")}`;
+  const revision = workingTimeRevision;
+  const draftEditRevision = workingTimeDraftEditRevision;
+  workingTimeNonce = requestNonce;
+  workingTimeController = new AbortController();
+  workingTimeBusy = true;
+  workingTimeRunButton.disabled = true;
+  workingTimeForm.setAttribute("aria-busy", "true");
+  setWorkingTimeStatus(confirmation === null ? "Auftrag wird lokal verstanden…" : "Entwurf wird lokal erstellt…", "busy");
+  try {
+    const response = await fetch("/api/working-time/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestNonce, revision, text: workingTimeText.value, intent: confirmation === null ? { personId: null, targetWeeklyHours: null, effectiveDate: null, researchRequested: null, templateRequested: null } : intent, confirmation }),
+      signal: workingTimeController.signal,
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error("request_failed");
+    if (workingTimeNonce !== requestNonce || payload.requestNonce !== requestNonce || payload.revision !== revision || workingTimeRevision !== revision) return;
+    if (!payload.ok) {
+      setWorkingTimeStatus(payload.message, "error");
+      return;
+    }
+    if (payload.kind === "clarification") {
+      showWorkingTimeClarification(payload);
+      setWorkingTimeStatus("Fehlende Angaben ergänzen und bewusst bestätigen");
+    } else {
+      if (workingTimeDraftEditRevision !== draftEditRevision) {
+        setWorkingTimeStatus("Der vorhandene Entwurf wurde während der Anfrage bearbeitet. Die neue Antwort wurde deshalb nicht übernommen.", "error");
+        return;
+      }
+      showWorkingTimeDraft(payload);
+      setWorkingTimeStatus("Unverbindlicher Entwurf erstellt");
+    }
+  } catch {
+    if (workingTimeNonce !== requestNonce) return;
+    setWorkingTimeStatus("Der lokale Pilot konnte den Auftrag nicht abschließen. Deine Eingaben bleiben erhalten.", "error");
+  } finally {
+    workingTimeBusy = false;
+    workingTimeController = null;
+    workingTimeRunButton.disabled = false;
+    workingTimeForm.removeAttribute("aria-busy");
+  }
 });

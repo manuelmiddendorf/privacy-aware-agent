@@ -100,18 +100,65 @@ test("ambiguous requests ask one fixed question and make no generation call", as
   assert.equal(model.generationCallCount, 0);
 });
 
-test("a planned skill proposal is not executable and cannot create a third stage", async () => {
+test("an unknown route is rejected as a closed-schema model error and cannot create a third stage", async () => {
   const model: LocalSkillModel = {
     name: "LOCAL_TEST_DOUBLE",
     proposalCallCount: 0,
     generationCallCount: 0,
-    async propose() { return { schemaVersion: 1, decision: "select", skillIds: ["GENERAL_RESEARCH"], clarificationCode: null }; },
+    async propose() { return { schemaVersion: 1, route: "GENERAL_RESEARCH" }; },
     async generate() { throw new Error("must not run"); },
   };
   const result = await new LocalSkillLane(new LocalSkillAuthority(POLICY), model)
     .run(request("nonce-1004", "Recherchiere allgemein", []));
   assert.equal(result.ok, false);
-  if (!result.ok) assert.equal(result.reasonCode, "LOCAL_SKILL_CLARIFICATION_REQUIRED");
+  if (!result.ok) assert.equal(result.reasonCode, "LOCAL_SKILL_MODEL_SCHEMA");
+});
+
+test("closed routes map only to the two known skills, fixed pair, clarification or unsupported", async () => {
+  const cases = [
+    { route: "UNDERSTAND_DOCUMENTS", sources: request("nonce-map1", "Erkläre den Text"), expected: ["DOCUMENT_UNDERSTANDING"] },
+    { route: "COMPOSE_TEXT", sources: request("nonce-map2", "Formuliere einen Text", []), expected: ["TEXT_COMPOSITION"] },
+    { route: "UNDERSTAND_THEN_COMPOSE", sources: request("nonce-map3", "Erkläre und formuliere"), expected: ["DOCUMENT_UNDERSTANDING", "TEXT_COMPOSITION"] },
+  ] as const;
+  for (const item of cases) {
+    const model: LocalSkillModel = {
+      name: "LOCAL_TEST_DOUBLE", proposalCallCount: 0, generationCallCount: 0,
+      async propose() { return { schemaVersion: 1, route: item.route }; },
+      async generate(input) {
+        return { schemaVersion: 1, parts: input.skillIds.map((skillId) => ({
+          skillId,
+          kind: skillId === "DOCUMENT_UNDERSTANDING" ? "answer" : "draft",
+          text: "Synthetisches Ergebnis",
+          citationParagraphIds: skillId === "DOCUMENT_UNDERSTANDING" ? ["inline-1:p01"] : [],
+        })) };
+      },
+    };
+    const result = await new LocalSkillLane(new LocalSkillAuthority(POLICY), model).run(item.sources);
+    assert.equal(result.ok, true);
+    if (result.ok) assert.deepEqual(result.skillIds, item.expected);
+  }
+
+  for (const raw of [
+    { schemaVersion: 1, route: "CLARIFY" },
+    { schemaVersion: 1, route: "UNSUPPORTED" },
+    { schemaVersion: 1, route: "COMPOSE_TEXT", skillIds: ["TEXT_COMPOSITION"] },
+    { schemaVersion: 1, route: "UNKNOWN" },
+  ]) {
+    const model: LocalSkillModel = {
+      name: "LOCAL_TEST_DOUBLE", proposalCallCount: 0, generationCallCount: 0,
+      async propose() { return raw; },
+      async generate() { throw new Error("must not run"); },
+    };
+    const result = await new LocalSkillLane(new LocalSkillAuthority(POLICY), model)
+      .run(request(`nonce-closed-${raw.route.toLowerCase()}`, "Bitte bearbeiten", []));
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      const expected = raw.route === "CLARIFY" ? "LOCAL_SKILL_CLARIFICATION_REQUIRED"
+        : raw.route === "UNSUPPORTED" ? "LOCAL_SKILL_UNSUPPORTED"
+        : "LOCAL_SKILL_MODEL_SCHEMA";
+      assert.equal(result.reasonCode, expected);
+    }
+  }
 });
 
 test("P7-11 denied source makes zero content and model calls", async () => {
@@ -169,7 +216,7 @@ test("caller abort stops before calls and discards held proposal or generation r
     name: "LOCAL_TEST_DOUBLE", proposalCallCount: 0, generationCallCount: 0,
     async propose() {
       await heldProposal;
-      return { schemaVersion: 1, decision: "select", skillIds: ["TEXT_COMPOSITION"], clarificationCode: null };
+      return { schemaVersion: 1, route: "COMPOSE_TEXT" };
     },
     async generate() { throw new Error("must not run"); },
   };
@@ -186,7 +233,7 @@ test("caller abort stops before calls and discards held proposal or generation r
   const heldGeneration = new Promise<void>((resolve) => { releaseGeneration = resolve; });
   const generationModel: LocalSkillModel = {
     name: "LOCAL_TEST_DOUBLE", proposalCallCount: 0, generationCallCount: 0,
-    async propose() { return { schemaVersion: 1, decision: "select", skillIds: ["TEXT_COMPOSITION"], clarificationCode: null }; },
+    async propose() { return { schemaVersion: 1, route: "COMPOSE_TEXT" }; },
     async generate() {
       await heldGeneration;
       return { schemaVersion: 1, parts: [{ skillId: "TEXT_COMPOSITION", kind: "draft", text: "Nicht anzeigen", citationParagraphIds: [] }] };
@@ -213,7 +260,7 @@ test("authorization changes discard held proposal and generation results", async
     generationCallCount: 0,
     async propose() {
       await proposalHeld;
-      return { schemaVersion: 1, decision: "select", skillIds: ["DOCUMENT_UNDERSTANDING"], clarificationCode: null };
+      return { schemaVersion: 1, route: "UNDERSTAND_DOCUMENTS" };
     },
     async generate() { throw new Error("must not run"); },
   };
@@ -231,7 +278,7 @@ test("authorization changes discard held proposal and generation results", async
     name: "LOCAL_TEST_DOUBLE",
     proposalCallCount: 0,
     generationCallCount: 0,
-    async propose() { return { schemaVersion: 1, decision: "select", skillIds: ["TEXT_COMPOSITION"], clarificationCode: null }; },
+    async propose() { return { schemaVersion: 1, route: "COMPOSE_TEXT" }; },
     async generate() {
       await generationHeld;
       return { schemaVersion: 1, parts: [{ skillId: "TEXT_COMPOSITION", kind: "draft", text: "Nicht anzeigen", citationParagraphIds: [] }] };
@@ -251,7 +298,7 @@ test("unknown citations and oversized contexts fail closed without truncation", 
     name: "LOCAL_TEST_DOUBLE",
     proposalCallCount: 0,
     generationCallCount: 0,
-    async propose() { return { schemaVersion: 1, decision: "select", skillIds: ["DOCUMENT_UNDERSTANDING"], clarificationCode: null }; },
+    async propose() { return { schemaVersion: 1, route: "UNDERSTAND_DOCUMENTS" }; },
     async generate() { return { schemaVersion: 1, parts: [{ skillId: "DOCUMENT_UNDERSTANDING", kind: "answer", text: "Antwort", citationParagraphIds: ["foreign:p01"] }] }; },
   };
   const invalid = await new LocalSkillLane(new LocalSkillAuthority(POLICY), badCitation)

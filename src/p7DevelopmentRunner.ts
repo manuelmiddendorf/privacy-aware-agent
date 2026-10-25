@@ -23,7 +23,8 @@ import { P7LocalCallBudget } from "./p7LocalCallBudget.js";
 const EXPECTED_P7_CANDIDATE_SHA256 = "4f848263aa4bf03558da4efee7e284e9a1ac623455ab85b636d620988ad67152";
 const EXPECTED_P6_CORE_SHA256 = "754391021dfa974659c4903367f9b8b2fd8c9c2690238e87c100cc0019b9af9d";
 const EXPECTED_P6_ADAPTER_SHA256 = "d6ef85281731b73b79393b615943563956a5b7ddd1906cb6da8494796d164401";
-const EXPECTED_PROMPT_HASHES: Readonly<Record<P7PromptConfigId, string>> = Object.freeze({
+type HistoricalPromptConfigId = Extract<P7PromptConfigId, "P7_SKILLS_A" | "P7_SKILLS_B">;
+const EXPECTED_PROMPT_HASHES: Readonly<Record<HistoricalPromptConfigId, string>> = Object.freeze({
   P7_SKILLS_A: "aecd1de45873952ab932c7591de9cf40b416277ae161b7b52159d38d2199012e",
   P7_SKILLS_B: "086f03498699736663a2f5c0874bcf7e2d6ebe41893eb1b3441adab9d9d4adca",
 });
@@ -63,7 +64,7 @@ type DevelopmentReport = {
   candidateSha256: string;
   p6CoreSha256: string;
   p6AdapterSha256: string;
-  promptHashes: Readonly<Record<P7PromptConfigId, string>>;
+  promptHashes: Readonly<Record<HistoricalPromptConfigId, string>>;
   model: string;
   startedAt: string;
   completedAt: string;

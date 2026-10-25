@@ -13,6 +13,8 @@ import type { LocalSkillCitation, TrustedLocalSkillPolicy } from "./localSkillTy
 import { MockProvider } from "./mockProvider.js";
 import { PrivacyAwareAgent } from "./orchestrator.js";
 import type { AgentRequest, AgentResult, TaskKind } from "./types.js";
+import { WorkingTimeContractWorkflow, WorkingTimeWorkflowAuthority, type WorkingTimeWorkflowModel } from "./workingTimeContractWorkflow.js";
+import { createWorkingTimeTemplateMockAnswer, type WorkingTimeResearchMock } from "./workingTimeResearchCatalog.js";
 
 export const LOCAL_UI_HOST = "127.0.0.1";
 export const LOCAL_UI_PORT = 4317;
@@ -21,6 +23,7 @@ const MAX_BODY_BYTES = 12_288;
 const MAX_LOCAL_SKILL_BODY_BYTES = 40_960;
 const REQUEST_TIMEOUT_MS = 5_000;
 const LOCAL_SKILL_TIMEOUT_MS = 20_000;
+const WORKING_TIME_TIMEOUT_MS = 20_000;
 const ALLOWED_SOURCES = new Set(["help-hours", "help-reset", "meeting-preparation"]);
 
 const APPROVED_TEMPLATES = Object.freeze({
@@ -70,6 +73,29 @@ export interface LocalSkillUiResponse {
 }
 
 export type LocalSkillUiRunner = (command: LocalSkillUiCommand, signal: AbortSignal) => Promise<LocalSkillUiResponse>;
+
+type WorkingTimeUiIntent = {
+  readonly personId: "person-lina" | null;
+  readonly targetWeeklyHours: number | null;
+  readonly effectiveDate: string | null;
+  readonly researchRequested: boolean | null;
+  readonly templateRequested: boolean | null;
+};
+
+export interface WorkingTimeUiCommand {
+  readonly requestNonce: string;
+  readonly revision: number;
+  readonly text: string;
+  readonly intent: WorkingTimeUiIntent;
+  readonly confirmation: null | (WorkingTimeUiIntent & { readonly revision: number; readonly text: string });
+}
+
+export type WorkingTimeUiResponse =
+  | { readonly ok: true; readonly requestNonce: string; readonly revision: number; readonly kind: "clarification"; readonly questions: readonly string[]; readonly proposedIntent: WorkingTimeUiIntent & { readonly personLabel: string | null }; readonly provider: string }
+  | { readonly ok: true; readonly requestNonce: string; readonly revision: number; readonly kind: "draft"; readonly draft: string; readonly citations: readonly string[]; readonly gaps: readonly string[]; readonly reviewNotes: readonly string[]; readonly researchUsed: boolean; readonly researchLabel: string | null; readonly templateUsed: boolean; readonly templateLabel: string; readonly provider: string }
+  | { readonly ok: false; readonly requestNonce: string; readonly revision: number; readonly kind: "error"; readonly message: string };
+
+export type WorkingTimeUiRunner = (command: WorkingTimeUiCommand, signal: AbortSignal) => Promise<WorkingTimeUiResponse>;
 
 const LOCAL_SKILL_POLICY: TrustedLocalSkillPolicy = Object.freeze({
   schemaVersion: 1,
@@ -175,6 +201,34 @@ function parseLocalSkillCommand(value: unknown): LocalSkillUiCommand | undefined
   return { requestNonce: value.requestNonce, text: value.text, attachments };
 }
 
+function parseWorkingTimeIntent(value: unknown): WorkingTimeUiIntent | undefined {
+  if (!isPlainObject(value) || !exactKeys(value, ["effectiveDate", "personId", "researchRequested", "targetWeeklyHours", "templateRequested"]) ||
+      (value.personId !== null && value.personId !== "person-lina") ||
+      (value.targetWeeklyHours !== null && (typeof value.targetWeeklyHours !== "number" || !Number.isFinite(value.targetWeeklyHours) || value.targetWeeklyHours <= 0 || value.targetWeeklyHours > 168)) ||
+      (value.effectiveDate !== null && (typeof value.effectiveDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value.effectiveDate))) ||
+      (value.researchRequested !== null && typeof value.researchRequested !== "boolean") ||
+      (value.templateRequested !== null && typeof value.templateRequested !== "boolean")) return undefined;
+  return { personId: value.personId as WorkingTimeUiIntent["personId"], targetWeeklyHours: value.targetWeeklyHours as number | null, effectiveDate: value.effectiveDate as string | null, researchRequested: value.researchRequested as boolean | null, templateRequested: value.templateRequested as boolean | null };
+}
+
+function parseWorkingTimeCommand(value: unknown): WorkingTimeUiCommand | undefined {
+  if (!isPlainObject(value) || !exactKeys(value, ["confirmation", "intent", "requestNonce", "revision", "text"]) ||
+      typeof value.requestNonce !== "string" || !/^p8_[A-Za-z0-9_]{8,124}$/.test(value.requestNonce) ||
+      !Number.isInteger(value.revision) || (value.revision as number) < 1 || (value.revision as number) > 1_000_000_000 ||
+      typeof value.text !== "string" || value.text.trim().length === 0 || Buffer.byteLength(value.text, "utf8") > 8_192) return undefined;
+  const intent = parseWorkingTimeIntent(value.intent);
+  if (!intent) return undefined;
+  if (value.confirmation === null) {
+    if (Object.values(intent).some((item) => item !== null)) return undefined;
+    return { requestNonce: value.requestNonce, revision: value.revision as number, text: value.text, intent, confirmation: null };
+  }
+  if (!isPlainObject(value.confirmation) || !exactKeys(value.confirmation, ["effectiveDate", "personId", "researchRequested", "revision", "targetWeeklyHours", "templateRequested", "text"])) return undefined;
+  const confirmationIntent = parseWorkingTimeIntent({ personId: value.confirmation.personId, targetWeeklyHours: value.confirmation.targetWeeklyHours, effectiveDate: value.confirmation.effectiveDate, researchRequested: value.confirmation.researchRequested, templateRequested: value.confirmation.templateRequested });
+  if (!confirmationIntent || Object.values(confirmationIntent).some((item) => item === null) || value.confirmation.revision !== value.revision || value.confirmation.text !== value.text ||
+      JSON.stringify(confirmationIntent) !== JSON.stringify(intent)) return undefined;
+  return { requestNonce: value.requestNonce, revision: value.revision as number, text: value.text, intent, confirmation: { ...confirmationIntent, revision: value.revision as number, text: value.text } };
+}
+
 export const runOfflineUiCommand: OfflineUiRunner = async (command, signal) => {
   const request = "templateId" in command ? APPROVED_TEMPLATES[command.templateId] : command;
   const evidence = "templateId" in command ? createExactSyntheticEvidenceAssessor(request) : undefined;
@@ -215,6 +269,67 @@ export const runLocalSkillUiCommand: LocalSkillUiRunner = async (command, signal
   };
 };
 
+export function createWorkingTimeUiRunner(model: WorkingTimeWorkflowModel): WorkingTimeUiRunner {
+  return async (command, signal) => {
+    const source = {
+      id: "contract-lina", organizationId: "OrgWF-A", personId: "person-lina",
+      readFields(fields: readonly ("display_name" | "current_weekly_hours" | "contract_paragraphs" | "unchanged_terms")[]) {
+        const values = {
+          display_name: "Lina Mustervertrag",
+          current_weekly_hours: 20,
+          contract_paragraphs: [{ id: "contract-lina:p01", text: "Bisherige vertragliche Arbeitszeit 20 Stunden je Woche" }, { id: "contract-lina:p02", text: "Andere Vertragsbestimmungen bleiben unverändert" }],
+          unchanged_terms: "Andere Vertragsbestimmungen bleiben unverändert",
+        } as const;
+        return Object.fromEntries(fields.map((field) => [field, values[field]]));
+      },
+    };
+    const authority = new WorkingTimeWorkflowAuthority({
+      organizationId: "OrgWF-A", actorId: "ActorWF-A", sessionId: "SessionWF-UI", taskIds: ["TaskWF-UI"], sourceIds: [source.id],
+      people: [{ personId: "person-lina", displayLabel: "Lina Mustervertrag" }], fieldIds: ["display_name", "current_weekly_hours", "contract_paragraphs", "unchanged_terms"],
+      allowGeneralResearch: true, allowGeneralTemplate: true, researchCatalogVersion: 1,
+    }, [source]);
+    let mockCalls = 0;
+    const researchMock: WorkingTimeResearchMock = {
+      name: "MOCK_OFFLINE",
+      get callCount() { return mockCalls; },
+      async generate(input) { mockCalls += 1; return "templateRequest" in input ? createWorkingTimeTemplateMockAnswer() : { text: "Eingefrorene synthetische allgemeine Referenz. Keine aktuelle Rechtsrecherche oder Einzelfallberatung." }; },
+    };
+    const workflow = new WorkingTimeContractWorkflow(authority, model, researchMock);
+    const confirmedIntent = command.confirmation === null
+      ? { personId: null, targetWeeklyHours: null, effectiveDate: null, researchRequested: null, templateRequested: null }
+      : command.intent;
+    const result = await workflow.run({
+      schemaVersion: 1, organizationId: "OrgWF-A", actorId: "ActorWF-A", sessionId: "SessionWF-UI", taskId: "TaskWF-UI", sourceId: source.id,
+      purpose: "SYNTHETIC_WORKING_TIME_CONTRACT_DRAFT", text: command.text, confirmedIntent,
+    }, { signal });
+    if (!result.ok) return { ok: false, requestNonce: command.requestNonce, revision: command.revision, kind: "error", message: "Der lokale Entwurf konnte nicht sicher erstellt werden. Deine Eingaben bleiben erhalten." };
+    if (result.kind === "clarification") return {
+      ok: true, requestNonce: command.requestNonce, revision: command.revision, kind: "clarification", questions: result.questions,
+      proposedIntent: {
+        personId: result.proposedIntent.personId === "person-lina" ? "person-lina" : null,
+        targetWeeklyHours: result.proposedIntent.targetWeeklyHours,
+        effectiveDate: result.proposedIntent.effectiveDate,
+        researchRequested: result.proposedIntent.researchRequested,
+        templateRequested: result.proposedIntent.templateRequested,
+        personLabel: result.proposedIntent.personId === "person-lina" ? "Lina Mustervertrag" : null,
+      },
+      provider: model.name,
+    };
+    return {
+      ok: true, requestNonce: command.requestNonce, revision: command.revision, kind: "draft", draft: result.draft, citations: result.citations,
+      gaps: result.gaps, reviewNotes: result.reviewNotes, researchUsed: result.researchUsed,
+      researchLabel: result.researchUsed ? "Synthetische MOCK-Referenz – keine aktuelle Rechtsrecherche" : null, provider: model.name,
+      templateUsed: result.templateUsed,
+      templateLabel: result.templateUsed ? "Synthetische MOCK-Vorlage – keine aktuelle Rechtsvorlage" : "Lokale feste Vorlage",
+    };
+  };
+}
+
+const unavailableWorkingTimeRunner: WorkingTimeUiRunner = async (command) => ({
+  ok: false, requestNonce: command.requestNonce, revision: command.revision, kind: "error",
+  message: "Der lokale Modellpilot ist noch nicht für UI-Aufrufe freigegeben. Deine Eingaben bleiben erhalten.",
+});
+
 function applySecurityHeaders(response: ServerResponse): void {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
@@ -254,6 +369,7 @@ async function readJson(request: IncomingMessage, maxBodyBytes = MAX_BODY_BYTES)
 export function createLocalUiRequestHandler(
   runner: OfflineUiRunner = runOfflineUiCommand,
   skillRunner: LocalSkillUiRunner = runLocalSkillUiCommand,
+  workingTimeRunner: WorkingTimeUiRunner = unavailableWorkingTimeRunner,
 ) {
   let busy = false;
   return async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
@@ -267,6 +383,59 @@ export function createLocalUiRequestHandler(
     }
 
     const url = request.url?.split("?", 1)[0] ?? "";
+    if (url === "/api/working-time/run") {
+      if (request.method !== "POST") {
+        response.setHeader("Allow", "POST");
+        sendJson(response, 405, { error: "Method not allowed." });
+        return;
+      }
+      if (request.headers.origin !== `http://${expectedHost}` || !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(request.headers["content-type"] ?? "")) {
+        sendJson(response, 403, { error: "Same-origin JSON requests only." });
+        return;
+      }
+      if (busy) {
+        sendJson(response, 429, { error: "The local demo is busy. Please try again." });
+        return;
+      }
+      let command: WorkingTimeUiCommand | undefined;
+      try { command = parseWorkingTimeCommand(await readJson(request, MAX_LOCAL_SKILL_BODY_BYTES)); }
+      catch (error) {
+        sendJson(response, error instanceof Error && error.message === "too_large" ? 413 : 400, { error: "The working-time request could not be read." });
+        return;
+      }
+      if (!command) {
+        sendJson(response, 400, { error: "The working-time request format is not supported." });
+        return;
+      }
+      if (busy) {
+        sendJson(response, 429, { error: "The local demo is busy. Please try again." });
+        return;
+      }
+      busy = true;
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      const abortOnDisconnect = () => {
+        if (!response.writableEnded) controller.abort();
+      };
+      request.once("aborted", abort);
+      response.once("close", abortOnDisconnect);
+      const timer = setTimeout(() => controller.abort(), WORKING_TIME_TIMEOUT_MS);
+      try {
+        const result = await workingTimeRunner(command, controller.signal);
+        if (!controller.signal.aborted && !response.destroyed) sendJson(response, 200, result);
+      } catch {
+        if (!controller.signal.aborted && !response.destroyed) {
+          sendJson(response, 500, { error: "The working-time request could not be completed." });
+        }
+      } finally {
+        clearTimeout(timer);
+        request.removeListener("aborted", abort);
+        response.removeListener("close", abortOnDisconnect);
+        busy = false;
+      }
+      return;
+    }
+
     if (url === "/api/local-skills/run") {
       if (request.method !== "POST") {
         response.setHeader("Allow", "POST");
@@ -381,8 +550,9 @@ export function createLocalUiRequestHandler(
 export function createLocalUiServer(
   runner: OfflineUiRunner = runOfflineUiCommand,
   skillRunner: LocalSkillUiRunner = runLocalSkillUiCommand,
+  workingTimeRunner: WorkingTimeUiRunner = unavailableWorkingTimeRunner,
 ): Server {
-  const handler = createLocalUiRequestHandler(runner, skillRunner);
+  const handler = createLocalUiRequestHandler(runner, skillRunner, workingTimeRunner);
   const server = createServer((request, response) => {
     void handler(request, response).catch(() => {
       if (!response.headersSent) sendJson(response, 500, { error: "The local server could not complete the request." });

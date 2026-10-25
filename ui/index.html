@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Privacy-Aware Agent — Local Demo</title>
+    <title>Privacy-Aware Agent — lokaler Pilot</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
@@ -11,12 +11,69 @@
       <header class="hero">
         <div>
           <p class="eyebrow">Privacy-Aware Agent</p>
-          <h1>Local policy-gated demo</h1>
-          <p class="intro">Try synthetic examples through the same privacy, source, and evidence checks used by the reference agent.</p>
+          <h1>Lokaler, richtliniengebundener Pilot</h1>
+          <p class="intro">Ein enger synthetischer Arbeitsablauf zeigt, wie ein Entwurf erst nach Rechteprüfung und bewusster Bestätigung entstehen kann.</p>
         </div>
-        <div class="mode" aria-label="Provider status"><strong>MOCK_OFFLINE</strong><span>Live provider: not enabled</span></div>
+        <div class="mode" aria-label="Laufzeitstatus"><strong>LOKALER PILOT</strong><span>Keine Speicherung, kein Versand</span></div>
       </header>
-      <section class="notice" aria-label="Demo limits">Use synthetic examples only. The rule-based privacy detection is intentionally conservative and incomplete. No text is stored by this local page.</section>
+      <section class="notice" aria-label="Grenzen des Piloten">Nur synthetische Angaben verwenden. Ergebnisse sind Entwürfe, keine geprüfte oder rechtssichere Fassung. Die optionale Referenz ist eingefroren und simuliert; sie ist keine aktuelle Recherche.</section>
+
+      <section class="panel working-time" aria-labelledby="working-time-heading">
+        <div class="section-heading">
+          <div><p class="step">Synthetischer P9-Pilot</p><h2 id="working-time-heading">Vertragsänderung vorbereiten</h2></div>
+          <div class="mode compact" aria-label="Pilotstatus"><strong>LOKALER SYNTHETIK-PILOT</strong><span>Bestätigung vor jedem Entwurf erforderlich</span></div>
+        </div>
+        <p class="experiment-warning">Beschreibe die Aufgabe frei. Fehlende Angaben werden neutral erfragt. Ein Entwurf entsteht erst, wenn du Person, Wochenstunden, Datum, Referenz- und Vorlagenwunsch ausdrücklich für den aktuellen Text bestätigst.</p>
+        <form id="working-time-form">
+          <label for="working-time-text">Was soll vorbereitet werden?</label>
+          <textarea id="working-time-text" rows="5" maxlength="8192" required placeholder="Zum Beispiel: Bereite einen unverbindlichen Entwurf zur Änderung der Wochenarbeitszeit vor."></textarea>
+          <p class="hint">Der freie Text und die Felder bleiben nur im Arbeitsspeicher dieser Seite. Es wird nichts gespeichert oder versendet.</p>
+          <section id="working-time-fields" class="confirmation-fields" aria-labelledby="working-time-fields-heading" hidden>
+            <h3 id="working-time-fields-heading">Angaben prüfen und ergänzen</h3>
+            <div class="field-grid">
+              <label for="working-time-person">Synthetische Person
+                <select id="working-time-person"><option value="">Bitte auswählen</option><option value="person-lina">Lina Mustervertrag</option></select>
+              </label>
+              <label for="working-time-hours">Neue Wochenstunden
+                <input id="working-time-hours" type="number" min="0.01" max="168" step="any" inputmode="decimal">
+              </label>
+              <label for="working-time-date">Wirksam ab
+                <input id="working-time-date" type="date">
+              </label>
+              <label for="working-time-research">Allgemeine Referenz
+                <select id="working-time-research"><option value="">Bitte auswählen</option><option value="false">Ohne allgemeine Referenz</option><option value="true">Synthetische MOCK-Referenz einbeziehen</option></select>
+              </label>
+              <label for="working-time-template">Allgemeine Vorlage
+                <select id="working-time-template"><option value="">Bitte auswählen</option><option value="false">Lokale feste Vorlage</option><option value="true">Synthetische MOCK-Vorlage einbeziehen</option></select>
+              </label>
+            </div>
+            <div id="working-time-questions" class="questions" aria-live="polite"></div>
+            <label class="confirmation-check"><input id="working-time-confirm" type="checkbox"> Ich bestätige diese Angaben für genau den aktuellen Text und die aktuelle Feldversion.</label>
+          </section>
+          <div class="actions"><button id="working-time-run-button" type="submit">Auftrag lokal prüfen</button><span id="working-time-status" class="status" role="status" aria-live="polite">Bereit</span></div>
+        </form>
+      </section>
+
+      <section class="panel response-panel working-time" aria-labelledby="working-time-result-heading">
+        <p class="step">Entwurf</p><h2 id="working-time-result-heading">Bearbeitbares Ergebnis</h2>
+        <div id="working-time-empty" class="result empty">Prüfe zuerst einen synthetischen Auftrag.</div>
+        <div id="working-time-result" hidden>
+          <label for="working-time-draft">Kopierbarer Entwurf</label>
+          <textarea id="working-time-draft" rows="12" aria-describedby="working-time-draft-note"></textarea>
+          <p id="working-time-draft-note" class="hint">Du kannst den Entwurf hier bearbeiten. Änderungen werden nicht gespeichert oder an das Modell zurückgesendet.</p>
+          <div id="working-time-research-label" class="reference-label" hidden></div>
+          <div id="working-time-template-label" class="reference-label"></div>
+          <div class="review-columns">
+            <section><h3>Offene Punkte</h3><ul id="working-time-gaps"></ul></section>
+            <section><h3>Ungeprüfte Modellhinweise</h3><ul id="working-time-review-notes"></ul><p class="hint">Diese Hinweise sind keine aktuelle Rechtsauskunft und können unzutreffend sein.</p></section>
+          </div>
+          <div class="citations"><h3>Verwendete synthetische Vertragsabsätze</h3><ul id="working-time-citations"></ul></div>
+        </div>
+      </section>
+
+      <details class="legacy-section">
+        <summary>Ältere Offline-Demos: MOCK_OFFLINE und P7-Testdouble</summary>
+        <p class="hint legacy-note">Diese Demos sind technisch getrennt vom Arbeitszeit-Piloten und verwenden kein reales lokales Modell.</p>
 
       <section class="panel" aria-labelledby="request-heading">
         <div class="section-heading">
@@ -84,6 +141,7 @@
         <div id="skill-result" class="result empty" tabindex="-1">Run a synthetic local skill request to see the mechanical result.</div>
         <div id="skill-citations" class="citations" hidden><h3>Host-validated paragraph references</h3><ul id="skill-citation-list"></ul><p class="hint">A valid paragraph ID proves source membership, not meaning or factual accuracy.</p></div>
       </section>
+      </details>
     </main>
     <script src="/app.js" type="module"></script>
   </body>

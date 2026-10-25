@@ -15,15 +15,15 @@ export class LocalSkillTestDouble implements LocalSkillModel {
     const text = input.requestText.toLocaleLowerCase("de-DE");
     if (/\b(fass|fasse|zusammenfass|erklär|erklaer|summari[sz]e|explain)\w*/u.test(text) &&
         /\b(schreib|formuliere|formulier|entwurf|draft|write|rewrite)\w*/u.test(text) && input.documents.length > 0) {
-      return { schemaVersion: 1, decision: "select", skillIds: ["DOCUMENT_UNDERSTANDING", "TEXT_COMPOSITION"], clarificationCode: null };
+      return { schemaVersion: 1, route: "UNDERSTAND_THEN_COMPOSE" };
     }
     if (/\b(fass|fasse|zusammenfass|erklär|erklaer|summari[sz]e|explain)\w*/u.test(text) && input.documents.length > 0) {
-      return { schemaVersion: 1, decision: "select", skillIds: ["DOCUMENT_UNDERSTANDING"], clarificationCode: null };
+      return { schemaVersion: 1, route: "UNDERSTAND_DOCUMENTS" };
     }
     if (/\b(schreib|formuliere|formulier|entwurf|draft|write|rewrite)\w*/u.test(text)) {
-      return { schemaVersion: 1, decision: "select", skillIds: ["TEXT_COMPOSITION"], clarificationCode: null };
+      return { schemaVersion: 1, route: "COMPOSE_TEXT" };
     }
-    return { schemaVersion: 1, decision: "clarify", skillIds: [], clarificationCode: "NEED_TASK_OR_SOURCE" };
+    return { schemaVersion: 1, route: "CLARIFY" };
   }
 
   async generate(input: LocalSkillGenerationInput, options: { signal?: AbortSignal } = {}): Promise<unknown> {

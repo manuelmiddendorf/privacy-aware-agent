@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { InMemoryResearchAuthority } from "./localResearchAuthority.js";
 import { classifyText } from "./privacyGate.js";
+import { assertPrivacySafeResearchOutbound } from "./researchOutboundBoundary.js";
 import { ScopeBoundIdentifierRegister } from "./scopeBoundIdentifierRegister.js";
 import type {
   ClosedResearchIntent,
@@ -128,6 +129,7 @@ export class LocalResearchLane {
     let outboundText;
     try {
       outboundText = renderResearchIntent(intent);
+      assertPrivacySafeResearchOutbound(outboundText, { maxBytes: 1_024 });
       const scan = this.guard.classify(outboundText, 1_024);
       if (scan.classification !== "safe" || register.match(outboundText).state !== "none") {
         return blocked("BLOCK_RESEARCH_FINAL_SCAN");

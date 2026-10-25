@@ -42,7 +42,7 @@ const GENERATION_INPUT: LocalSkillGenerationInput = {
 const config = (overrides: Partial<TrustedP7OllamaConfig> = {}): TrustedP7OllamaConfig => ({
   enabled: true,
   verifiedManifestSha256: P6_OLLAMA_MANIFEST_SHA256,
-  promptConfigId: "P7_SKILLS_A",
+  promptConfigId: "P7_ROUTE_V2",
   timeoutMs: 100,
   maxRequestBytes: P7_MAX_HTTP_REQUEST_BYTES,
   maxResponseBytes: 8_192,
@@ -58,29 +58,32 @@ const envelope = (content: unknown, overrides: Record<string, unknown> = {}) => 
   ...overrides,
 });
 
-test("both prompt configurations are distinct, frozen and match the checked-in hashes", async () => {
+test("historical prompts and the single route-v2 correction are distinct, frozen and match checked-in hashes", async () => {
   const configured = JSON.parse(await readFile("config/p7-prompt-configs.json", "utf8")) as {
-    configurations: { id: keyof typeof P7_PROMPT_CONFIG_CANONICAL; canonicalPromptSha256: string }[];
+    configurations: { id: keyof typeof P7_PROMPT_CONFIG_CANONICAL; canonicalPromptSha256: string; status: string }[];
   };
   const actual = Object.fromEntries(Object.entries(P7_PROMPT_CONFIG_CANONICAL).map(([id, value]) =>
     [id, createHash("sha256").update(value).digest("hex")]));
   assert.deepEqual(configured.configurations.map(({ id, canonicalPromptSha256 }) => ({ id, canonicalPromptSha256 })), [
     { id: "P7_SKILLS_A", canonicalPromptSha256: actual.P7_SKILLS_A },
     { id: "P7_SKILLS_B", canonicalPromptSha256: actual.P7_SKILLS_B },
+    { id: "P7_ROUTE_V2", canonicalPromptSha256: actual.P7_ROUTE_V2 },
   ]);
   assert.notEqual(actual.P7_SKILLS_A, actual.P7_SKILLS_B);
+  assert.notEqual(actual.P7_ROUTE_V2, actual.P7_SKILLS_A);
+  assert.notEqual(actual.P7_ROUTE_V2, actual.P7_SKILLS_B);
   assert.notEqual(P7_PROMPT_CONFIGS.P7_SKILLS_A.proposalSystem, P7_PROMPT_CONFIGS.P7_SKILLS_B.proposalSystem);
 });
 
-test("proposal uses the pinned loopback request and identical budgets for both fixed prompts", async () => {
-  for (const promptConfigId of ["P7_SKILLS_A", "P7_SKILLS_B"] as const) {
+test("route-v2 proposal uses the pinned loopback request and fixed budget", async () => {
+  for (const promptConfigId of ["P7_ROUTE_V2"] as const) {
     let captured: Parameters<OllamaResearchTransport>[0] | undefined;
     const adapter = new OllamaLocalSkillAdapter(async (request) => {
       captured = request;
-      return { status: 200, body: envelope({ schemaVersion: 1, decision: "select", skillIds: ["TEXT_COMPOSITION"], clarificationCode: null }) };
+      return { status: 200, body: envelope({ schemaVersion: 1, route: "COMPOSE_TEXT" }) };
     }, config({ promptConfigId }));
     assert.deepEqual(await adapter.propose(PROPOSAL_INPUT),
-      { schemaVersion: 1, decision: "select", skillIds: ["TEXT_COMPOSITION"], clarificationCode: null });
+      { schemaVersion: 1, route: "COMPOSE_TEXT" });
     assert.equal(captured?.url, P6_OLLAMA_URL);
     const body = JSON.parse(captured?.body ?? "null");
     assert.equal(body.model, P6_OLLAMA_MODEL);
@@ -91,6 +94,9 @@ test("proposal uses the pinned loopback request and identical budgets for both f
     assert.deepEqual(body.options, { temperature: 0, seed: 29, num_ctx: P7_OLLAMA_NUM_CTX, num_predict: 128 });
     assert.equal(body.messages[0].content, P7_PROMPT_CONFIGS[promptConfigId].proposalSystem);
     assert.equal(body.format.additionalProperties, false);
+    assert.deepEqual(body.format.required, ["schemaVersion", "route"]);
+    assert.deepEqual(body.format.properties.route.enum,
+      ["UNDERSTAND_DOCUMENTS", "COMPOSE_TEXT", "UNDERSTAND_THEN_COMPOSE", "CLARIFY", "UNSUPPORTED"]);
     assert.equal(adapter.transportCallCount, 1);
   }
 });
@@ -138,7 +144,7 @@ test("inherited prompt keys and model-context overflow fail before transport", a
   const noop: OllamaResearchTransport = async () => {
     throw new Error("must not run");
   };
-  for (const promptConfigId of ["constructor", "__proto__"] as const) {
+  for (const promptConfigId of ["constructor", "__proto__", "P7_ROUTE_V3", "P7_SKILLS_A", "P7_SKILLS_B"] as const) {
     assert.throws(() => new OllamaLocalSkillAdapter(noop, config({
       promptConfigId: promptConfigId as unknown as TrustedP7OllamaConfig["promptConfigId"],
     })), /invalid P7 Ollama config/);
@@ -167,7 +173,7 @@ test("timeout and caller abort stop even when the injected transport ignores abo
   const controller = new AbortController();
   const heldAdapter = new OllamaLocalSkillAdapter(async () => {
     await held;
-    return { status: 200, body: envelope({ schemaVersion: 1, decision: "clarify", skillIds: [], clarificationCode: "NEED_TASK_OR_SOURCE" }) };
+    return { status: 200, body: envelope({ schemaVersion: 1, route: "CLARIFY" }) };
   }, config());
   const pending = heldAdapter.propose(PROPOSAL_INPUT, { signal: controller.signal });
   controller.abort();
@@ -209,7 +215,7 @@ test("adapter contains no second fetch engine and snapshots input before transpo
   const adapter = new OllamaLocalSkillAdapter(async (request) => {
     captured = request.body;
     await held;
-    return { status: 200, body: envelope({ schemaVersion: 1, decision: "select", skillIds: ["TEXT_COMPOSITION"], clarificationCode: null }) };
+    return { status: 200, body: envelope({ schemaVersion: 1, route: "COMPOSE_TEXT" }) };
   }, config());
   const pending = adapter.propose(mutable);
   (mutable as { requestText: string }).requestText = "mutated";
