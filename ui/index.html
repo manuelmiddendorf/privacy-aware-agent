@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy-Aware Agent — lokaler Pilot</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Privacy-Aware Agent</p>
+          <h1>Lokaler, richtliniengebundener Pilot</h1>
+          <p class="intro">Ein enger synthetischer Arbeitsablauf zeigt, wie ein Entwurf erst nach Rechteprüfung und bewusster Bestätigung entstehen kann.</p>
+        </div>
+        <div class="mode" aria-label="Laufzeitstatus"><strong>LOKALER PILOT</strong><span>Keine Speicherung, kein Versand</span></div>
+      </header>
+      <section class="notice" aria-label="Grenzen des Piloten">Nur synthetische Angaben verwenden. Ergebnisse sind Entwürfe, keine geprüfte oder rechtssichere Fassung. Die optionale Referenz ist eingefroren und simuliert; sie ist keine aktuelle Recherche.</section>
+
+      <section class="panel working-time" aria-labelledby="working-time-heading">
+        <div class="section-heading">
+          <div><p class="step">Synthetischer P9-Pilot</p><h2 id="working-time-heading">Vertragsänderung vorbereiten</h2></div>
+          <div class="mode compact" aria-label="Pilotstatus"><strong>LOKALER SYNTHETIK-PILOT</strong><span>Bestätigung vor jedem Entwurf erforderlich</span></div>
+        </div>
+        <p class="experiment-warning">Beschreibe die Aufgabe frei. Fehlende Angaben werden neutral erfragt. Ein Entwurf entsteht erst, wenn du Person, Wochenstunden, Datum, Referenz- und Vorlagenwunsch ausdrücklich für den aktuellen Text bestätigst.</p>
+        <form id="working-time-form">
+          <label for="working-time-text">Was soll vorbereitet werden?</label>
+          <textarea id="working-time-text" rows="5" maxlength="8192" required placeholder="Zum Beispiel: Bereite einen unverbindlichen Entwurf zur Änderung der Wochenarbeitszeit vor."></textarea>
+          <p class="hint">Der freie Text und die Felder bleiben nur im Arbeitsspeicher dieser Seite. Es wird nichts gespeichert oder versendet.</p>
+          <section id="working-time-fields" class="confirmation-fields" aria-labelledby="working-time-fields-heading" hidden>
+            <h3 id="working-time-fields-heading">Angaben prüfen und ergänzen</h3>
+            <div class="field-grid">
+              <label for="working-time-person">Synthetische Person
+                <select id="working-time-person"><option value="">Bitte auswählen</option><option value="person-lina">Lina Mustervertrag</option></select>
+              </label>
+              <label for="working-time-hours">Neue Wochenstunden
+                <input id="working-time-hours" type="number" min="0.01" max="168" step="any" inputmode="decimal">
+              </label>
+              <label for="working-time-date">Wirksam ab
+                <input id="working-time-date" type="date">
+              </label>
+              <label for="working-time-research">Allgemeine Referenz
+                <select id="working-time-research"><option value="">Bitte auswählen</option><option value="false">Ohne allgemeine Referenz</option><option value="true">Synthetische MOCK-Referenz einbeziehen</option></select>
+              </label>
+              <label for="working-time-template">Allgemeine Vorlage
+                <select id="working-time-template"><option value="">Bitte auswählen</option><option value="false">Lokale feste Vorlage</option><option value="true">Synthetische MOCK-Vorlage einbeziehen</option></select>
+              </label>
+            </div>
+            <div id="working-time-questions" class="questions" aria-live="polite"></div>
+            <label class="confirmation-check"><input id="working-time-confirm" type="checkbox"> Ich bestätige diese Angaben für genau den aktuellen Text und die aktuelle Feldversion.</label>
+          </section>
+          <div class="actions"><button id="working-time-run-button" type="submit">Auftrag lokal prüfen</button><span id="working-time-status" class="status" role="status" aria-live="polite">Bereit</span></div>
+        </form>
+      </section>
+
+      <section class="panel response-panel working-time" aria-labelledby="working-time-result-heading">
+        <p class="step">Entwurf</p><h2 id="working-time-result-heading">Bearbeitbares Ergebnis</h2>
+        <div id="working-time-empty" class="result empty">Prüfe zuerst einen synthetischen Auftrag.</div>
+        <div id="working-time-result" hidden>
+          <label for="working-time-draft">Kopierbarer Entwurf</label>
+          <textarea id="working-time-draft" rows="12" aria-describedby="working-time-draft-note"></textarea>
+          <p id="working-time-draft-note" class="hint">Du kannst den Entwurf hier bearbeiten. Änderungen werden nicht gespeichert oder an das Modell zurückgesendet.</p>
+          <div id="working-time-research-label" class="reference-label" hidden></div>
+          <div id="working-time-template-label" class="reference-label"></div>
+          <div class="review-columns">
+            <section><h3>Offene Punkte</h3><ul id="working-time-gaps"></ul></section>
+            <section><h3>Ungeprüfte Modellhinweise</h3><ul id="working-time-review-notes"></ul><p class="hint">Diese Hinweise sind keine aktuelle Rechtsauskunft und können unzutreffend sein.</p></section>
+          </div>
+          <div class="citations"><h3>Verwendete synthetische Vertragsabsätze</h3><ul id="working-time-citations"></ul></div>
+        </div>
+      </section>
+
+      <details class="legacy-section">
+        <summary>Ältere Offline-Demos: MOCK_OFFLINE und P7-Testdouble</summary>
+        <p class="hint legacy-note">Diese Demos sind technisch getrennt vom Arbeitszeit-Piloten und verwenden kein reales lokales Modell.</p>
+
+      <section class="panel" aria-labelledby="request-heading">
+        <div class="section-heading">
+          <div><p class="step">Request</p><h2 id="request-heading">What should the offline agent do?</h2></div>
+          <div class="templates" aria-label="Approved synthetic templates">
+            <button type="button" class="secondary" data-template="demo-a">Approved meeting example</button>
+            <button type="button" class="secondary" data-template="p01">Vetted follow-up example</button>
+          </div>
+        </div>
+        <form id="agent-form">
+          <fieldset><legend>Task</legend><div class="task-options">
+            <label><input type="radio" name="task" value="ask" checked> Ask</label>
+            <label><input type="radio" name="task" value="draft"> Draft</label>
+            <label><input type="radio" name="task" value="summarize"> Summarize</label>
+          </div></fieldset>
+          <label for="request-text">Text</label>
+          <textarea id="request-text" name="text" rows="7" maxlength="8192" required placeholder="Use general, synthetic information only."></textarea>
+          <p class="hint">Press Ctrl+Enter or Command+Enter to run. Your text stays in place after a block or error.</p>
+          <fieldset><legend>Synthetic sources</legend>
+            <p class="hint">Sources are optional for drafts and summaries. Questions require approved evidence; arbitrary source questions fail closed.</p>
+            <div class="source-options">
+              <label><input type="checkbox" name="source" value="help-hours"> Office hours</label>
+              <label><input type="checkbox" name="source" value="help-reset"> Reset flow</label>
+              <label><input type="checkbox" name="source" value="meeting-preparation"> Meeting preparation</label>
+            </div>
+          </fieldset>
+          <div class="actions"><button id="run-button" type="submit">Run offline</button><span id="status" class="status" role="status" aria-live="polite">Ready</span></div>
+        </form>
+      </section>
+
+      <section class="panel response-panel" aria-labelledby="response-heading">
+        <p class="step">Result</p><h2 id="response-heading">Offline response</h2>
+        <div id="result" class="result empty" tabindex="-1">Run a synthetic request to see the result.</div>
+        <div id="citations" class="citations" hidden><h3>Sources</h3><ul id="citation-list"></ul></div>
+      </section>
+
+      <section class="panel experiment" aria-labelledby="skills-heading">
+        <div class="section-heading">
+          <div><p class="step">P7 local experiment</p><h2 id="skills-heading">Local skills for synthetic text</h2></div>
+          <div class="mode compact" aria-label="Local skill runtime"><strong>LOCAL_TEST_DOUBLE</strong><span>Real local model: not connected</span></div>
+        </div>
+        <p class="experiment-warning">Use synthetic text only. This mechanical test does not store text, use files, contact external services, or prove that pasted content is fictional. The effective local-model context limit is smaller than the outer form limit, so oversized input stops without truncation.</p>
+        <ul class="skill-catalog" aria-label="Local skill catalog">
+          <li><strong>Dokumente verstehen</strong><span class="badge available">Mechanical test</span><small>Answer with host-validated paragraph references.</small></li>
+          <li><strong>Informationen vergleichen</strong><span class="badge planned">Planned</span></li>
+          <li><strong>Texte formulieren</strong><span class="badge available">Mechanical test</span><small>Editable draft only; nothing is sent.</small></li>
+          <li><strong>Vorgänge vorbereiten</strong><span class="badge planned">Planned</span></li>
+          <li><strong>Allgemein recherchieren</strong><span class="badge planned">Planned</span><small>No external research is enabled.</small></li>
+        </ul>
+
+        <form id="skill-form">
+          <label for="skill-request-text">What should be understood or drafted?</label>
+          <textarea id="skill-request-text" rows="6" maxlength="8192" required placeholder="Describe the synthetic task. The host validates the proposed skill."></textarea>
+          <p class="hint">No skill selection is required. Ambiguous or planned tasks return a short question and do not expand source access.</p>
+          <div class="attachment-heading"><div><h3>Selected text attachments</h3><p class="hint">Plain text only; no upload, file path, URL, OCR, mailbox, or database access.</p></div><button id="add-attachment" class="secondary" type="button">Add text attachment</button></div>
+          <div id="attachment-list" class="attachment-list"></div>
+          <p class="hint">Outer limit: four attachments and 24 KiB combined. Effective model-context limit: 12 KiB including a conservative fixed prompt reserve. Text is never silently shortened.</p>
+          <div class="actions"><button id="skill-run-button" type="submit">Run mechanical local test</button><span id="skill-status" class="status" role="status" aria-live="polite">Ready</span></div>
+        </form>
+      </section>
+
+      <section class="panel response-panel experiment" aria-labelledby="skill-response-heading">
+        <p class="step">P7 result</p><h2 id="skill-response-heading">Local skill response</h2>
+        <div id="skill-result-meta" class="result-meta" hidden></div>
+        <div id="skill-result" class="result empty" tabindex="-1">Run a synthetic local skill request to see the mechanical result.</div>
+        <div id="skill-citations" class="citations" hidden><h3>Host-validated paragraph references</h3><ul id="skill-citation-list"></ul><p class="hint">A valid paragraph ID proves source membership, not meaning or factual accuracy.</p></div>
+      </section>
+      </details>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

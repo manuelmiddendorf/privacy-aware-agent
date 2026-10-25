@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "2026-10-25",
+  "skills": [
+    {
+      "id": "DOCUMENT_UNDERSTANDING",
+      "label": "Dokumente verstehen",
+      "status": "p7-target",
+      "resultKind": "answer-with-paragraph-citations"
+    },
+    {
+      "id": "INFORMATION_COMPARISON",
+      "label": "Informationen vergleichen",
+      "status": "planned",
+      "resultKind": "not-available"
+    },
+    {
+      "id": "TEXT_COMPOSITION",
+      "label": "Texte formulieren",
+      "status": "p7-target",
+      "resultKind": "draft-only"
+    },
+    {
+      "id": "PROCESS_PREPARATION",
+      "label": "Vorgänge vorbereiten",
+      "status": "planned",
+      "resultKind": "not-available"
+    },
+    {
+      "id": "GENERAL_RESEARCH",
+      "label": "Allgemein recherchieren",
+      "status": "planned",
+      "resultKind": "not-available"
+    }
+  ]
+}

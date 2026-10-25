@@ -1,0 +1,12 @@
+(version 1)
+
+; This child-process guard denies the real ~/.ollama subtree except the directory
+; entry and the two exact upstream identity paths approved for first creation.
+; allow-default is neither general HOME isolation nor a network-egress proof.
+(allow default)
+(deny file-read* file-write*
+  (require-all
+    (subpath (param "HOME_OLLAMA"))
+    (require-not (literal (param "HOME_OLLAMA")))
+    (require-not (literal (param "IDENTITY_PRIVATE")))
+    (require-not (literal (param "IDENTITY_PUBLIC")))))

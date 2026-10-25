@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "split": "preregistered-development",
+  "cases": [
+    {
+      "id": "WF01_COMPLETE_LOCAL",
+      "requestText": "Erstelle für Lina Mustervertrag einen unverbindlichen Entwurf: 25 Wochenstunden ab 2031-09-01. Allgemeine Recherche ist nicht gewünscht.",
+      "confirmedIntent": { "personId": "person-lina", "targetWeeklyHours": 25, "effectiveDate": "2031-09-01", "researchRequested": false },
+      "expectedModelCalls": 2,
+      "expectedResearchCalls": 0
+    },
+    {
+      "id": "WF02_MISSING_THEN_CONFIRMED",
+      "requestText": "Bereite bitte einen unverbindlichen Entwurf zur Änderung der Wochenarbeitszeit vor.",
+      "confirmedIntent": { "personId": null, "targetWeeklyHours": null, "effectiveDate": null, "researchRequested": null },
+      "confirmedFollowup": { "personId": "person-lina", "targetWeeklyHours": 25, "effectiveDate": "2031-09-01", "researchRequested": false },
+      "expectedFirstQuestions": [
+        "Für welche synthetische Person soll der Vertragsentwurf erstellt werden?",
+        "Welche neue Wochenarbeitszeit soll gelten?",
+        "Ab welchem Datum soll die neue Wochenarbeitszeit gelten?",
+        "Soll der Entwurf ohne allgemeine Recherche erstellt werden?"
+      ],
+      "expectedModelCalls": 3,
+      "expectedResearchCalls": 0
+    },
+    {
+      "id": "WF03_COMPLETE_MOCK_RESEARCH",
+      "requestText": "Erstelle für Lina Mustervertrag einen unverbindlichen Entwurf: 25 Wochenstunden ab 2031-09-01, und beziehe allgemeine Anforderungen ein.",
+      "confirmedIntent": { "personId": "person-lina", "targetWeeklyHours": 25, "effectiveDate": "2031-09-01", "researchRequested": true },
+      "expectedModelCalls": 2,
+      "expectedResearchCalls": 1
+    }
+  ],
+  "source": {
+    "id": "contract-lina",
+    "organizationId": "OrgWF-A",
+    "personId": "person-lina",
+    "displayName": "Lina Mustervertrag",
+    "currentWeeklyHours": 20,
+    "paragraphs": [
+      { "id": "contract-lina:p01", "text": "Bisherige vertragliche Arbeitszeit 20 Stunden je Woche" },
+      { "id": "contract-lina:p02", "text": "Andere Vertragsbestimmungen bleiben unverändert" }
+    ]
+  }
+}

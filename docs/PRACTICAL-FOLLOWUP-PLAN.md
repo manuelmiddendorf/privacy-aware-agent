@@ -46,6 +46,14 @@ Review it in a local browser at desktop and narrow mobile widths. Browser checks
 
 Completion criterion: browser review confirms the offline scenarios and security boundary, focused UI tests pass, and the result remains local until a separate publication decision.
 
+## P6 — Local privacy and research preflight
+
+Only after P5 local acceptance, prepare a separately gated data-flow contract, fixture matrix, and local-model options review. The proposed path combines the existing regex baseline with an organization- and authorization-bound sensitive identifier register, conservative typed matching, and a strict local research-intent renderer. Missing or uncertain local-model results must fail closed with zero external calls; there is no direct OpenAI fallback.
+
+The first P6 step is design and synthetic evaluation only. It may inspect non-sensitive Mac hardware and installed-runtime metadata, but not keys, environment files, or user data. Any model download or material disk/hardware decision requires a separate gate. P6 must not make another OpenAI call, add cloud services, or claim universal privacy safety.
+
+Status on 2026-10-25: the core, loopback adapter, guarded Ollama runtime, and pinned Qwen artifacts were independently verified. The first frozen host-context run completed with six local model requests and no external or downstream mock calls. It continued none of four expected safe positives, so transport is accepted but research utility is not. P5 remains on `MOCK_OFFLINE`; no P6 UI integration is planned from this result. See [P6-LOCAL-MODEL-RESULT.md](P6-LOCAL-MODEL-RESULT.md).
+
 ## Standing boundaries
 
 - Wait for the coordinator's frozen P1 catalog before changing application code.

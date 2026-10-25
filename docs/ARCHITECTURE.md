@@ -2,7 +2,7 @@
 
 The HOSTSERVER constructs a trusted, versioned policy context. `policy.ts` validates it with a closed schema. A role is descriptive input only; effective capabilities and readable source IDs must be present explicitly in that trusted context.
 
-`PrivacyAwareAgent.run` is the only orchestration path:
+`PrivacyAwareAgent.run` is the only orchestration path for the existing external-provider reference agent:
 
 1. Validate trusted policy and authorize the task and every requested source.
 2. Require approved evidence for `ask`. Permit `summarize` without a source only for the general text carried in the request; every requested external source still needs explicit task authorization. Permit an evidence-free `draft` only when the policy allows drafting.
@@ -40,3 +40,13 @@ The optional OpenAI transport is a narrow implementation of the existing injecte
 Each permitted request is reserved in a persistent budget ledger before network access. The ledger uses a request digest, a fixed run contract, exclusive file locking, and a conservative worst-case token reservation. The completed first run retains its two-request legacy contract. A separately reviewed follow-up may use its own fixed run ID and cap while validating and counting the immutable prior ledger before every access. A duplicate, concurrent start, unresolved previous attempt, timeout, unknown usage record, changed pricing contract, prior-ledger mismatch, or exhausted allowance stops further requests. Confirmed usage is parsed from the response, but reservations are never refunded.
 
 The transport sends `store: false`, Standard service tier, `reasoning.effort: none`, no tools, disabled truncation, and a strict structured-output schema to the fixed Responses route. It rejects redirects, oversized bodies, an unexpected model or service tier, refusals/tool output, malformed structured output, foreign citations, and missing or contradictory usage. These checks do not establish account availability, data residency, Zero Data Retention, semantic accuracy, universal privacy detection, or regulatory compliance.
+
+## Separate P7 synthetic local-skill lane
+
+P7 does not route through `PrivacyAwareAgent` and does not alter its external-provider privacy rule. It is a separate local-only experiment for explicitly synthetic text. Trusted host policy fixes organization, principal, session, purpose, executable skills, readable host-resolved source IDs, whether inline synthetic attachments are allowed, and all byte/count limits before any source accessor runs. Browser fields, roles, document instructions, and model proposals cannot add rights.
+
+Trusted source handles carry frozen organization, read-only capability, kind, and title metadata. The authority accepts host-resolved content only when its source ID is allowlisted, and accepts inline synthetic text only when the server policy enables that source kind. Only then is text read, snapshotted in memory, and divided on blank lines into request-local host paragraph IDs. There is no persistence, file/URL loader, OCR, mailbox, database, or automatic discovery.
+
+One closed proposal call chooses one executable skill, the fixed ordered pair `DOCUMENT_UNDERSTANDING` plus `TEXT_COMPOSITION`, a clarification, or unsupported. Host code validates the proposal against the catalog and source combination. At most one generation call returns one exact part per accepted skill. Understanding requires selected documents and host-owned paragraph citations; composition is labelled an editable draft and performs no action. Citation membership proves only that an ID belongs to the selected snapshot, not that it supports a claim. Authorization epoch, request generation, abort state, and browser nonce are checked across awaits before display.
+
+The mechanical UI is labelled `LOCAL_TEST_DOUBLE`. Real Ollama wiring remains gated on the preregistered P7 comparison and independent review. No local-model failure can fall back to OpenAI or another external service.
